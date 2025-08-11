@@ -1,0 +1,32 @@
+{
+  "name": "Onolo Group Orders",
+  "short_name": "Onolo Orders",
+  "description": "Order gas cylinders and fuel delivery from Onolo Group",
+  "icons": [
+    {
+      "src": "/favicon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#FF6B35",
+  "background_color": "#000000",
+  "orientation": "portrait"
+}
