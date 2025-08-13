@@ -52,5 +52,12 @@ jobs:
           cd ios
           # Ensure env var is visible to Match
           export MATCH_PASSWORD="${MATCH_PASSWORD}"
-          # Revoke all Distribution certificates and related profiles for the team
-          fastlane match nuke distribution
+
+          # Build App Store Connect API key JSON for fastlane (non-interactive auth)
+          KEY_FILE=/tmp/asc_key.json
+          echo "$ASC_KEY_CONTENT" | base64 --decode > /tmp/AuthKey.p8
+          KEY_ESCAPED=$(awk '{printf "%s\\n", $0}' /tmp/AuthKey.p8 | sed 's/"/\\"/g')
+          printf '{"key_id":"%s","issuer_id":"%s","key":"%s"}' "$ASC_KEY_ID" "$ASC_ISSUER_ID" "$KEY_ESCAPED" > "$KEY_FILE"
+
+          # Revoke all Distribution certificates and related profiles for the team using API key
+          fastlane match nuke distribution --api_key_path "$KEY_FILE"
