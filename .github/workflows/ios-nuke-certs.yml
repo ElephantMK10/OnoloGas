@@ -1,0 +1,56 @@
+name: Nuke iOS Distribution Certificates
+
+on:
+  workflow_dispatch:
+
+jobs:
+  nuke-certs:
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 15.2
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.2'
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install Fastlane
+        run: gem install fastlane
+
+      - name: Nuke Distribution certificates and provisioning profiles via Match
+        env:
+          # Apple team context
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+          # Match repo (private)
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BRANCH: ${{ secrets.MATCH_GIT_BRANCH }}
+
+          # Temporary keychain in CI
+          MATCH_KEYCHAIN_NAME: fastlane_tmp.keychain-db
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+
+          # Match encryption password (required for CI)
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+
+          # App Store Connect API key (avoids 2FA)
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+
+          # Skip interactive confirms
+          FASTLANE_SKIP_CONFIRMATION: '1'
+        run: |
+          cd ios
+          # Ensure env var is visible to Match
+          export MATCH_PASSWORD="${MATCH_PASSWORD}"
+          # Revoke all Distribution certificates and related profiles for the team
+          fastlane match nuke appstore
