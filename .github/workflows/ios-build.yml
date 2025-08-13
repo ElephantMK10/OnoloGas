@@ -38,6 +38,7 @@ jobs:
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           eas build --platform ios --local --non-interactive \
           --output ./build.ipa \
