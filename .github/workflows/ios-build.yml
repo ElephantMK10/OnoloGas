@@ -55,6 +55,8 @@ jobs:
           # Use a temporary keychain on CI to avoid UI prompts
           MATCH_KEYCHAIN_NAME: fastlane_tmp.keychain-db
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          # Match repo encryption password (required in non-interactive CI)
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
 
           # App Store Connect API key (base64 encode .p8 contents for ASC_KEY_CONTENT)
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -62,6 +64,7 @@ jobs:
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
         run: |
           cd ios
+          export MATCH_PASSWORD="${MATCH_PASSWORD}"
           fastlane ios release
 
       - name: Upload artifact
