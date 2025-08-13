@@ -61,14 +61,13 @@ platform :ios do
       output_directory: "./build",
       output_name: "OnoloGas.ipa",
       configuration: "Release",
-      # Force manual signing during archive and disable Pod signing
+      # Force manual signing during archive
       xcargs: [
         "CODE_SIGNING_ALLOWED=YES",
         "CODE_SIGNING_REQUIRED=YES",
         "CODE_SIGN_STYLE=Manual",
         "CODE_SIGN_IDENTITY='Apple Distribution'",
         "DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
-        "PROVISIONING_PROFILE_SPECIFIER='#{ENV["sigh_com.onologroup.orders_appstore_profile-name"]}'",
         "-allowProvisioningUpdates"
       ].compact.join(" "),
       export_options: {
