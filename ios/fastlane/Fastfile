@@ -46,6 +46,7 @@ platform :ios do
       team_id: ENV["APPLE_TEAM_ID"],
       code_sign_identity: "Apple Distribution",
       profile_uuid: ENV["sigh_com.onologroup.orders_appstore_profile-uuid"],
+      profile_name: ENV["sigh_com.onologroup.orders_appstore_profile-name"],
       build_configurations: ["Release"]
     )
 
@@ -59,20 +60,22 @@ platform :ios do
       clean: true,
       output_directory: "./build",
       output_name: "OnoloGas.ipa",
-      # Force manual signing during archive; pin specifier to UUID (no spaces) to avoid xcodebuild parsing it as a build action
+      configuration: "Release",
+      # Force manual signing during archive and disable Pod signing
       xcargs: [
         "CODE_SIGNING_ALLOWED=YES",
         "CODE_SIGNING_REQUIRED=YES",
         "CODE_SIGN_STYLE=Manual",
+        "CODE_SIGN_IDENTITY='Apple Distribution'",
         "DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
-        "PODS_CONFIGURATION_BUILD_DIR='$BUILD_DIR/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)'",
-        "CODE_SIGNING_ALLOWED_FOR_APPS=YES"
+        "PROVISIONING_PROFILE_SPECIFIER='#{ENV["sigh_com.onologroup.orders_appstore_profile-name"]}'",
+        "-allowProvisioningUpdates"
       ].compact.join(" "),
       export_options: {
         method: "app-store",
         teamID: ENV["APPLE_TEAM_ID"],
         provisioningProfiles: {
-          "com.onologroup.orders" => profile_name
+          "com.onologroup.orders" => ENV["sigh_com.onologroup.orders_appstore_profile-name"] || "match AppStore com.onologroup.orders"
         }
       }
     )
