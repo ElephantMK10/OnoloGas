@@ -38,21 +38,15 @@ platform :ios do
       api_key: api_key
     )
 
-    # Force project to Manual signing for the app target (both project and target level)
-    automatic_code_signing(
+    # Force project to Manual signing (project + target level) using the App Store profile
+    update_code_signing_settings(
       path: "OnoloGas.xcodeproj",
       use_automatic_signing: false,
-      team_id: ENV["APPLE_TEAM_ID"]
-    )
-    # Pin Release configuration to the App Store profile and Distribution identity
-    update_project_provisioning(
-      xcodeproj: "OnoloGas.xcodeproj",
-      target_filter: "OnoloGas",
-      build_configuration: "Release",
-      profile: ENV["sigh_com.onologroup.orders_appstore_profile-name"] || "match AppStore com.onologroup.orders",
-      code_signing_identity: "Apple Distribution",
+      targets: ["OnoloGas"],
       team_id: ENV["APPLE_TEAM_ID"],
-      use_automatic_signing: false
+      code_sign_identity: "Apple Distribution",
+      profile_name: ENV["sigh_com.onologroup.orders_appstore_profile-name"] || "match AppStore com.onologroup.orders",
+      build_configurations: ["Release"]
     )
 
     # Use the fetched App Store profile name (sigh exports this env var)
