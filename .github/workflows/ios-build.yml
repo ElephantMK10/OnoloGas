@@ -36,6 +36,12 @@ jobs:
       - name: Install JS dependencies
         run: npm ci
 
+      - name: Patch Expo Modules for Xcode 15.1
+        run: |
+          echo "Applying Expo modules patch for Xcode 15.1 compatibility..."
+          cd ios
+          ruby expo-modules-core-patch.rb
+
       - name: Install CocoaPods
         run: |
           cd ios
