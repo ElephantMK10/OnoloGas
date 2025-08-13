@@ -69,6 +69,26 @@ jobs:
           export MATCH_PASSWORD="${MATCH_PASSWORD}"
           fastlane ios release
 
+      - name: Tail gym log on failure
+        if: failure()
+        run: |
+          LOG_DIR="$HOME/Library/Logs/gym"
+          echo "Listing gym logs in: $LOG_DIR"
+          ls -lah "$LOG_DIR" || true
+          echo "---- Tail of gym log ----"
+          tail -n 400 "$LOG_DIR"/OnoloGas-*.log || true
+          echo "---- DerivedData build logs (paths) ----"
+          find ~/Library/Developer/Xcode/DerivedData -type f -path "*Logs/Build/*" -name "*.log" -print | tail -n 50 || true
+
+      - name: Upload xcodebuild/gym logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-logs
+          path: |
+            ~/Library/Logs/gym
+            ~/Library/Developer/Xcode/DerivedData/**/Logs
+          if-no-files-found: ignore
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
