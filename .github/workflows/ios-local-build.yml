@@ -1,0 +1,95 @@
+name: iOS Local Build (Runner) & Submit
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-ios-local:
+    runs-on: macos-14
+    env:
+      EAS_LOCAL_BUILD_SKIP_CLEANUP: "1"
+      EAS_LOCAL_BUILD_WORKINGDIR: ${{ github.workspace }}/.eas-local
+      EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/artifacts
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Expo & EAS
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Ensure native iOS project exists
+        run: npx expo prebuild -p ios --non-interactive
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Local iOS build (EAS)
+        run: npx eas build --platform ios --local --profile production --non-interactive
+
+      - name: List artifacts
+        run: |
+          echo "Artifacts in $GITHUB_WORKSPACE/artifacts:" && ls -la $GITHUB_WORKSPACE/artifacts || true
+
+      - name: Upload .ipa artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: artifacts/**/*.ipa
+          retention-days: 7
+
+  submit-testflight:
+    needs: build-ios-local
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    runs-on: macos-14
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup Expo & EAS
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Download .ipa artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-ipa
+          path: artifacts
+
+      - name: Submit to TestFlight
+        run: |
+          IPA_PATH=$(ls -1 artifacts/**/*.ipa | head -n 1)
+          echo "Submitting $IPA_PATH"
+          npx eas submit --platform ios --path "$IPA_PATH" --non-interactive
+
+
