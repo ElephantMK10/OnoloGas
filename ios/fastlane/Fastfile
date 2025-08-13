@@ -45,7 +45,7 @@ platform :ios do
       targets: ["OnoloGas"],
       team_id: ENV["APPLE_TEAM_ID"],
       code_sign_identity: "Apple Distribution",
-      profile_name: ENV["sigh_com.onologroup.orders_appstore_profile-name"] || "match AppStore com.onologroup.orders",
+      profile_uuid: ENV["sigh_com.onologroup.orders_appstore_profile-uuid"],
       build_configurations: ["Release"]
     )
 
@@ -64,7 +64,9 @@ platform :ios do
         "CODE_SIGNING_ALLOWED=YES",
         "CODE_SIGNING_REQUIRED=YES",
         "CODE_SIGN_STYLE=Manual",
-        "DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}"
+        "DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
+        "PODS_CONFIGURATION_BUILD_DIR='$BUILD_DIR/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)'",
+        "CODE_SIGNING_ALLOWED_FOR_APPS=YES"
       ].compact.join(" "),
       export_options: {
         method: "app-store",
