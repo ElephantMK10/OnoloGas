@@ -1,0 +1,15 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build the iOS app"
+  lane :build do
+    xcversion(version: "15.2")
+    build_app(
+      workspace: "OnoloGas.xcworkspace",
+      scheme: "OnoloGas",
+      clean: true,
+      output_directory: "./build",
+      output_name: "OnoloGas.ipa"
+    )
+  end
+end
