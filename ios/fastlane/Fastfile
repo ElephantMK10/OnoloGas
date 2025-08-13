@@ -49,8 +49,9 @@ platform :ios do
       build_configurations: ["Release"]
     )
 
-    # Use the fetched App Store profile name (sigh exports this env var)
+    # Use the fetched App Store profile (name and uuid provided by sigh env vars)
     profile_name = ENV["sigh_com.onologroup.orders_appstore_profile-name"] || "match AppStore com.onologroup.orders"
+    profile_uuid = ENV["sigh_com.onologroup.orders_appstore_profile-uuid"]
 
     build_app(
       workspace: "OnoloGas.xcworkspace",
@@ -58,14 +59,13 @@ platform :ios do
       clean: true,
       output_directory: "./build",
       output_name: "OnoloGas.ipa",
-      # Force manual signing during archive to avoid automatic Development profile selection
+      # Force manual signing during archive; pin specifier to UUID (no spaces) to avoid xcodebuild parsing it as a build action
       xcargs: [
         "CODE_SIGNING_ALLOWED=YES",
         "CODE_SIGNING_REQUIRED=YES",
         "CODE_SIGN_STYLE=Manual",
-        "DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
-        "PROVISIONING_PROFILE_SPECIFIER=#{profile_name}"
-      ].join(" "),
+        "DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}"
+      ].compact.join(" "),
       export_options: {
         method: "app-store",
         teamID: ENV["APPLE_TEAM_ID"],
