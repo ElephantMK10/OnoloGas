@@ -9,7 +9,11 @@ platform :ios do
       scheme: "OnoloGas",
       clean: true,
       output_directory: "./build",
-      output_name: "OnoloGas.ipa"
+      output_name: "OnoloGas.ipa",
+      export_options: {
+        method: "app-store",
+        teamID: ENV["APPLE_TEAM_ID"]
+      }
     )
   end
 end
