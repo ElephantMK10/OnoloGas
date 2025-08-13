@@ -38,15 +38,46 @@ platform :ios do
       api_key: api_key
     )
 
+    # Force project to Manual signing for the app target (both project and target level)
+    automatic_code_signing(
+      path: "OnoloGas.xcodeproj",
+      use_automatic_signing: false,
+      team_id: ENV["APPLE_TEAM_ID"]
+    )
+    # Pin Release configuration to the App Store profile and Distribution identity
+    update_project_provisioning(
+      xcodeproj: "OnoloGas.xcodeproj",
+      target_filter: "OnoloGas",
+      build_configuration: "Release",
+      profile: ENV["sigh_com.onologroup.orders_appstore_profile-name"] || "match AppStore com.onologroup.orders",
+      code_signing_identity: "Apple Distribution",
+      team_id: ENV["APPLE_TEAM_ID"],
+      use_automatic_signing: false
+    )
+
+    # Use the fetched App Store profile name (sigh exports this env var)
+    profile_name = ENV["sigh_com.onologroup.orders_appstore_profile-name"] || "match AppStore com.onologroup.orders"
+
     build_app(
       workspace: "OnoloGas.xcworkspace",
       scheme: "OnoloGas",
       clean: true,
       output_directory: "./build",
       output_name: "OnoloGas.ipa",
+      # Force manual signing during archive to avoid automatic Development profile selection
+      xcargs: [
+        "CODE_SIGNING_ALLOWED=YES",
+        "CODE_SIGNING_REQUIRED=YES",
+        "CODE_SIGN_STYLE=Manual",
+        "DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
+        "PROVISIONING_PROFILE_SPECIFIER=#{profile_name}"
+      ].join(" "),
       export_options: {
         method: "app-store",
-        teamID: ENV["APPLE_TEAM_ID"]
+        teamID: ENV["APPLE_TEAM_ID"],
+        provisioningProfiles: {
+          "com.onologroup.orders" => profile_name
+        }
       }
     )
   end
