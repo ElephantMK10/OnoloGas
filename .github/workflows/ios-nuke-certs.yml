@@ -53,4 +53,4 @@ jobs:
           # Ensure env var is visible to Match
           export MATCH_PASSWORD="${MATCH_PASSWORD}"
           # Revoke all Distribution certificates and related profiles for the team
-          fastlane match nuke appstore
+          fastlane match nuke distribution
