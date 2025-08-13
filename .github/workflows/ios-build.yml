@@ -1,4 +1,3 @@
-# Trigger workflow run at 2025-08-13 
 name: Build and Deploy iOS App
 
 on:
@@ -10,9 +9,16 @@ on:
 jobs:
   build-and-deploy:
     runs-on: macos-14
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Select Xcode 15.2
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.2'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -27,29 +33,39 @@ jobs:
       - name: Install Fastlane
         run: gem install fastlane
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install JS dependencies
+        run: npm ci
 
-      - name: Clean and install pods
+      - name: Install CocoaPods
         run: |
           cd ios
-          rm -rf Pods Podfile.lock
           pod install --repo-update
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-
-      - name: Build and archive
+      - name: Build and upload to TestFlight
         env:
+          # Apple account/team
           APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+          # Fastlane Match storage (use a separate, private repo)
+          # Example secret value: https://x-access-token:${{ secrets.MATCH_GIT_TOKEN }}@github.com/your-org/ios-certificates.git
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BRANCH: ${{ secrets.MATCH_GIT_BRANCH }}
+
+          # Use a temporary keychain on CI to avoid UI prompts
+          MATCH_KEYCHAIN_NAME: fastlane_tmp.keychain-db
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+
+          # App Store Connect API key (base64 encode .p8 contents for ASC_KEY_CONTENT)
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
         run: |
           cd ios
-          fastlane build
+          fastlane ios release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-build
-          path: ./build.ipa
+          path: ios/build/OnoloGas.ipa
