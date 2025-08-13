@@ -15,10 +15,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode 15.1
+      - name: Select Xcode 16.1
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '15.1'
+          xcode-version: '16.1'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -36,16 +36,18 @@ jobs:
       - name: Install JS dependencies
         run: npm ci
 
-      - name: Patch Expo Modules for Xcode 15.1
-        run: |
-          echo "Applying Expo modules patch for Xcode 15.1 compatibility..."
-          cd ios
-          ruby expo-modules-core-patch.rb
 
       - name: Install CocoaPods
         run: |
           cd ios
           pod install --repo-update
+      
+      - name: Install xcodeproj gem
+        run: gem install xcodeproj
+      
+      - name: Disable code signing for Pods
+        run: |
+          cd ios
           echo "Disabling code signing for all Pods targets..."
           ruby disable_pods_signing.rb
 
