@@ -29,9 +29,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install pods
+      - name: Clean and install pods
         run: |
           cd ios
+          rm -rf Pods Podfile.lock
           pod install --repo-update
 
       - name: Install EAS CLI
