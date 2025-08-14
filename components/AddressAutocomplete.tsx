@@ -13,7 +13,7 @@ import {
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import { COLORS } from '../constants/colors';
 
 // Use env variable if available, otherwise fallback to the provided public token
@@ -335,7 +335,7 @@ export default function AddressAutocomplete({
     <View style={[styles.container, style]} ref={containerRef}>
       {label && <Text style={styles.label}>{label}</Text>}
       <View style={styles.inputContainer}>
-        <Ionicons
+        <CustomIcon
           name="location-outline"
           size={20}
           color={COLORS.text.gray}
@@ -369,7 +369,7 @@ export default function AddressAutocomplete({
         />
         {query.length > 0 && (
           <TouchableOpacity onPress={clearInput} style={styles.clearButton}>
-            <Ionicons name="close-circle" size={20} color={COLORS.text.gray} />
+            <CustomIcon name="close-circle" size={20} color={COLORS.text.gray} />
           </TouchableOpacity>
         )}
       </View>
@@ -427,7 +427,7 @@ export default function AddressAutocomplete({
                     },
                   })}
                 >
-                  <Ionicons
+                  <CustomIcon
                     name="location"
                     size={16}
                     color={COLORS.primary}

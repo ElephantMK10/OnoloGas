@@ -27,9 +27,25 @@ if (!process.env.EAS_BUILD) {
   config.resolver.disableHierarchicalLookup = true;
 }
 
-// 4. Exclude react-native-maps from web bundle
+// 4. Exclude react-native-maps and unused fonts from web bundle
 if (process.env.EXPO_PLATFORM === 'web') {
-  config.resolver.blockList = [/node_modules\/react-native-maps\/.*$/];
+  config.resolver.blockList = [
+    /node_modules\/react-native-maps\/.*$/,
+    // This regex blocks all .ttf files in the vector-icons fonts directory
+    // except for Ionicons.ttf, which is the only one used in the app.
+    /node_modules\/@expo\/vector-icons\/build\/vendor\/react-native-vector-icons\/Fonts\/(?!Ionicons\.ttf$).*\.ttf$/,
+  ];
 }
+
+// Add these optimizations
+config.transformer = {
+  ...config.transformer,
+  minifierConfig: {
+    keep_fnames: true,
+    mangle: {
+      keep_fnames: true,
+    },
+  },
+};
 
 module.exports = config;

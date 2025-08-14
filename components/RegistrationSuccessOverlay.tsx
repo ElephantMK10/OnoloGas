@@ -8,7 +8,7 @@ import {
   Animated,
   Dimensions
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import { COLORS } from '../constants/colors';
 import { useRouter } from 'expo-router';
 
@@ -96,7 +96,7 @@ export default function RegistrationSuccessOverlay({
         <View style={styles.container}>
           {/* Success Icon */}
           <View style={styles.iconContainer}>
-            <Ionicons 
+            <CustomIcon 
               name={steps[currentStep]?.icon as any} 
               size={80} 
               color={COLORS.primary} 
@@ -141,7 +141,7 @@ export default function RegistrationSuccessOverlay({
 
           {/* Info Message */}
           <View style={styles.infoContainer}>
-            <Ionicons name="information-circle" size={20} color={COLORS.text.gray} />
+            <CustomIcon name="information-circle" size={20} color={COLORS.text.gray} />
             <Text style={styles.infoText}>
               Please wait while we set up your account and redirect you to the dashboard.
             </Text>
@@ -149,7 +149,7 @@ export default function RegistrationSuccessOverlay({
 
           {/* Email Notice */}
           <View style={styles.emailNotice}>
-            <Ionicons name="mail-outline" size={16} color={COLORS.text.gray} />
+            <CustomIcon name="mail-outline" size={16} color={COLORS.text.gray} />
             <Text style={styles.emailNoticeText}>
               Check your spam folder for any confirmation emails
             </Text>

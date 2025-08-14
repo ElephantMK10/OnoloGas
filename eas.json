@@ -32,7 +32,7 @@
         "EAS_BUILD": "true"
       },
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "large"
       }
     }
   },

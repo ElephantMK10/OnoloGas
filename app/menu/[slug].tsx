@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from '../../components/CustomIcon';
 import { COLORS } from '../../constants/colors';
 import { COMPANY } from '../../constants/company';
 import Header from '../../components/Header';
@@ -133,12 +133,12 @@ export default function MenuDetailScreen() {
           {sections.map((section) => (
             <View key={section.title} style={styles.card}>
               <View style={styles.cardHeader}>
-                <Ionicons name={section.icon as any} size={28} color={COLORS.primary} />
+                <CustomIcon name={section.icon as any} size={28} color={COLORS.primary} />
                 <Text style={styles.cardTitle}>{section.title}</Text>
               </View>
               {section.items.map((line) => (
                 <View key={line} style={styles.safetyItem}>
-                  <Ionicons
+                  <CustomIcon
                     name="checkmark"
                     size={18}
                     color={COLORS.primary}
@@ -178,12 +178,12 @@ export default function MenuDetailScreen() {
 
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Ionicons name="alert-circle-outline" size={28} color={COLORS.primary} />
+              <CustomIcon name="alert-circle-outline" size={28} color={COLORS.primary} />
               <Text style={styles.cardTitle}>Safety Guidelines</Text>
             </View>
             {safetyLines.map((line) => (
               <View key={line} style={styles.safetyItem}>
-                <Ionicons
+                <CustomIcon
                   name="checkmark-outline"
                   size={20}
                   color={COLORS.primary}
@@ -213,7 +213,7 @@ export default function MenuDetailScreen() {
           {/* Delivery Areas */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Ionicons name="cube-outline" size={28} color={COLORS.primary} />
+              <CustomIcon name="cube-outline" size={28} color={COLORS.primary} />
               <Text style={styles.cardTitle}>Delivery Areas</Text>
             </View>
             <Text style={styles.description}>
@@ -234,7 +234,7 @@ export default function MenuDetailScreen() {
           {/* Delivery Times */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Ionicons name="time-outline" size={28} color={COLORS.primary} />
+              <CustomIcon name="time-outline" size={28} color={COLORS.primary} />
               <Text style={styles.cardTitle}>Delivery Times</Text>
             </View>
             <Text style={styles.description}>
@@ -249,7 +249,7 @@ export default function MenuDetailScreen() {
           {/* Important Information */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Ionicons name="alert-circle-outline" size={28} color={COLORS.primary} />
+              <CustomIcon name="alert-circle-outline" size={28} color={COLORS.primary} />
               <Text style={styles.cardTitle}>Important Information</Text>
             </View>
             {[

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import { COLORS } from '../constants/colors';
 
 interface GuestOrderInfoProps {
@@ -16,7 +16,7 @@ export default function GuestOrderInfo({ visible }: GuestOrderInfoProps) {
   return (
     <View style={styles.container}>
       <View style={styles.iconContainer}>
-        <Ionicons name="information-circle" size={20} color={COLORS.primary} />
+        <CustomIcon name="information-circle" size={20} color={COLORS.primary} />
       </View>
       <View style={styles.textContainer}>
         <Text style={styles.title}>Guest Order Information</Text>

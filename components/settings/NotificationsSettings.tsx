@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Switch } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from '../CustomIcon';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { COLORS } from '../../constants/colors';
 import { styles } from './settingsStyles';
@@ -53,7 +53,7 @@ export const NotificationsSettings: React.FC<NotificationSettingsProps> = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text.white} />
+          <CustomIcon name="arrow-back" size={24} color={COLORS.text.white} />
         </TouchableOpacity>
         <Text style={styles.title}>Notifications</Text>
         <View style={{ width: 24 }} />
@@ -65,7 +65,7 @@ export const NotificationsSettings: React.FC<NotificationSettingsProps> = ({
 
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
-              <Ionicons name="mail-outline" size={22} color={COLORS.primary} />
+              <CustomIcon name="mail-outline" size={22} color={COLORS.primary} />
             </View>
             <View style={styles.settingTextContainer}>
               <Text style={styles.settingText}>Email Notifications</Text>
@@ -81,7 +81,7 @@ export const NotificationsSettings: React.FC<NotificationSettingsProps> = ({
 
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
-              <Ionicons name="chatbubbles-outline" size={22} color={COLORS.primary} />
+              <CustomIcon name="chatbubbles-outline" size={22} color={COLORS.primary} />
             </View>
             <View style={styles.settingTextContainer}>
               <Text style={styles.settingText}>SMS Notifications</Text>
@@ -97,7 +97,7 @@ export const NotificationsSettings: React.FC<NotificationSettingsProps> = ({
 
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
-              <Ionicons name="notifications-outline" size={22} color={COLORS.primary} />
+              <CustomIcon name="notifications-outline" size={22} color={COLORS.primary} />
             </View>
             <View style={styles.settingTextContainer}>
               <Text style={styles.settingText}>Push Notifications</Text>

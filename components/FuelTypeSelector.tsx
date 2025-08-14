@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import { COLORS } from '../constants/colors';
 import { useRouter } from 'expo-router';
 
@@ -35,7 +35,7 @@ export default function FuelTypeSelector() {
           style={[styles.fuelOption, selectedFuel === 'diesel' && styles.selectedFuelOption]}
           onPress={() => handleFuelSelect('diesel')}
         >
-          <Ionicons
+          <CustomIcon
             name="speedometer-outline"
             size={32}
             color={selectedFuel === 'diesel' ? COLORS.text.white : COLORS.text.gray}
@@ -49,7 +49,7 @@ export default function FuelTypeSelector() {
           style={[styles.fuelOption, selectedFuel === 'gas' && styles.selectedFuelOption]}
           onPress={() => handleFuelSelect('gas')}
         >
-          <Ionicons
+          <CustomIcon
             name="flame-outline"
             size={32}
             color={selectedFuel === 'gas' ? COLORS.text.white : COLORS.text.gray}
@@ -63,7 +63,7 @@ export default function FuelTypeSelector() {
           style={[styles.fuelOption, selectedFuel === 'petrol' && styles.selectedFuelOption]}
           onPress={() => handleFuelSelect('petrol')}
         >
-          <Ionicons
+          <CustomIcon
             name="car-outline"
             size={32}
             color={selectedFuel === 'petrol' ? COLORS.text.white : COLORS.text.gray}

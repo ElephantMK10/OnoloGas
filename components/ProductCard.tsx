@@ -1,6 +1,6 @@
 import React, { useState, memo, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import { COLORS } from '../constants/colors';
 import { Product } from '../constants/products';
 import Button from './Button';
@@ -72,7 +72,7 @@ const ProductCard = memo<ProductCardProps>(({ product, onAddToCart }) => {
             style={{ resizeMode: 'contain' }}
           />
         ) : (
-          <Ionicons
+          <CustomIcon
             name={product.type === 'gas' ? 'flame-outline' : 'water-outline'}
             size={60}
             color={COLORS.primary}
@@ -89,7 +89,7 @@ const ProductCard = memo<ProductCardProps>(({ product, onAddToCart }) => {
           onPress={decreaseQuantity}
           disabled={quantity <= 1}
         >
-          <Ionicons
+          <CustomIcon
             name="remove"
             size={20}
             color={quantity <= 1 ? COLORS.inactive : COLORS.text.white}
@@ -99,7 +99,7 @@ const ProductCard = memo<ProductCardProps>(({ product, onAddToCart }) => {
         <Text style={styles.quantityText}>{quantity}</Text>
 
         <TouchableOpacity style={styles.quantityButton} onPress={increaseQuantity}>
-          <Ionicons name="add" size={20} color={COLORS.text.white} />
+          <CustomIcon name="add" size={20} color={COLORS.text.white} />
         </TouchableOpacity>
       </View>
 

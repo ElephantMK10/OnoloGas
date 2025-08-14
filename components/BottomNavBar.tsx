@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import { usePathname, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 import { COLORS } from '../constants/colors';
 import { useCart } from '../context/CartContext';
@@ -15,7 +17,7 @@ interface Tab {
   badge?: number;
 }
 
-export default function BottomNavBar() {
+export default function BottomNavBar(props: BottomTabBarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { totalItems } = useCart();
@@ -61,7 +63,7 @@ export default function BottomNavBar() {
             >
               <View style={[styles.tabInner, active && styles.activeTab]}>
                 {/* @ts-ignore  – Ionicons typings don\'t include all names */}
-                <Ionicons
+                <CustomIcon
                   name={active ? tab.activeIcon : tab.icon}
                   size={24}
                   color={active ? COLORS.primary : COLORS.text.gray}

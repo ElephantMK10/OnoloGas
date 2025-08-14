@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { COMPANY } from '../constants/company';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrders } from '../contexts/OrdersContext';
@@ -99,7 +99,7 @@ export default function Header({ showBackButton = false, title }: HeaderProps) {
       <View style={styles.logoContainer}>
         {showBackButton ? (
           <TouchableOpacity onPress={handleBackPress} style={styles.backButton} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.text.white} />
+            <CustomIcon name="arrow-back" size={24} color={COLORS.text.white} />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity 
@@ -126,7 +126,7 @@ export default function Header({ showBackButton = false, title }: HeaderProps) {
             onPress={handleMessagesPress}
             activeOpacity={0.7}
           >
-            <Ionicons name="chatbubble-outline" size={20} color={COLORS.primary} />
+            <CustomIcon name="chatbubble-outline" size={20} color={COLORS.primary} />
             <View style={styles.messagesBadge}>
               <Text style={styles.messagesBadgeText}>{unreadCount}</Text>
             </View>
@@ -140,7 +140,7 @@ export default function Header({ showBackButton = false, title }: HeaderProps) {
             onPress={handleOrdersBadgePress}
             activeOpacity={0.7}
           >
-            <Ionicons name="receipt-outline" size={20} color={COLORS.primary} />
+            <CustomIcon name="receipt-outline" size={20} color={COLORS.primary} />
             <View style={styles.ordersBadge}>
               <Text style={styles.ordersBadgeText}>{pendingOrdersCount}</Text>
             </View>
@@ -156,7 +156,7 @@ export default function Header({ showBackButton = false, title }: HeaderProps) {
           {user ? (
             <Text style={styles.profileInitial}>{getUserInitial()}</Text>
           ) : (
-            <Ionicons name="person-circle-outline" size={28} color={COLORS.text.white} />
+            <CustomIcon name="person-circle-outline" size={28} color={COLORS.text.white} />
           )}
         </TouchableOpacity>
       </View>

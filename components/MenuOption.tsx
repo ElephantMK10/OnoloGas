@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS } from '../constants/colors';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 
 interface MenuOptionProps {
   title: string;
@@ -16,7 +16,7 @@ export default function MenuOption({ title, onPress, icon }: MenuOptionProps) {
         <View style={styles.innerDot} />
       </View>
       <Text style={styles.title}>{title}</Text>
-      {icon && <Ionicons name={icon as any} size={20} color={COLORS.text.gray} />}
+      {icon && <CustomIcon name={icon as any} size={20} color={COLORS.text.gray} />}
     </TouchableOpacity>
   );
 }

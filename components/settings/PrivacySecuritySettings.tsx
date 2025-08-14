@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Switch, Alert, Linking } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from '../CustomIcon';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { COLORS } from '../../constants/colors';
 import { styles } from './settingsStyles';
@@ -85,7 +85,7 @@ export const PrivacySecuritySettings: React.FC<PrivacySecuritySettingsProps> = (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text.white} />
+          <CustomIcon name="arrow-back" size={24} color={COLORS.text.white} />
         </TouchableOpacity>
         <Text style={styles.title}>Privacy & Security</Text>
         <View style={{ width: 24 }} />
@@ -97,18 +97,18 @@ export const PrivacySecuritySettings: React.FC<PrivacySecuritySettingsProps> = (
 
           <TouchableOpacity style={styles.settingItem} onPress={onChangePassword}>
             <View style={styles.settingIcon}>
-              <Ionicons name="key-outline" size={22} color={COLORS.primary} />
+              <CustomIcon name="key-outline" size={22} color={COLORS.primary} />
             </View>
             <View style={styles.settingTextContainer}>
               <Text style={styles.settingText}>Change Password</Text>
               <Text style={styles.settingDescription}>Update your account password</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.gray} />
+            <CustomIcon name="chevron-forward" size={20} color={COLORS.text.gray} />
           </TouchableOpacity>
 
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
-              <Ionicons name="shield-checkmark-outline" size={22} color={COLORS.primary} />
+              <CustomIcon name="shield-checkmark-outline" size={22} color={COLORS.primary} />
             </View>
             <View style={styles.settingTextContainer}>
               <Text style={styles.settingText}>Two-Factor Authentication</Text>
@@ -124,7 +124,7 @@ export const PrivacySecuritySettings: React.FC<PrivacySecuritySettingsProps> = (
 
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
-              <Ionicons name="finger-print-outline" size={22} color={COLORS.primary} />
+              <CustomIcon name="finger-print-outline" size={22} color={COLORS.primary} />
             </View>
             <View style={styles.settingTextContainer}>
               <Text style={styles.settingText}>Biometric Login</Text>
@@ -144,24 +144,24 @@ export const PrivacySecuritySettings: React.FC<PrivacySecuritySettingsProps> = (
 
           <TouchableOpacity style={styles.settingItem} onPress={handleOpenPrivacyPolicy}>
             <View style={styles.settingIcon}>
-              <Ionicons name="document-text-outline" size={22} color={COLORS.primary} />
+              <CustomIcon name="document-text-outline" size={22} color={COLORS.primary} />
             </View>
             <View style={styles.settingTextContainer}>
               <Text style={styles.settingText}>Privacy Policy</Text>
               <Text style={styles.settingDescription}>How we handle your data</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.gray} />
+            <CustomIcon name="chevron-forward" size={20} color={COLORS.text.gray} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.settingItem} onPress={handleOpenTerms}>
             <View style={styles.settingIcon}>
-              <Ionicons name="document-lock-outline" size={22} color={COLORS.primary} />
+              <CustomIcon name="document-lock-outline" size={22} color={COLORS.primary} />
             </View>
             <View style={styles.settingTextContainer}>
               <Text style={styles.settingText}>Terms of Service</Text>
               <Text style={styles.settingDescription}>Terms and conditions</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.gray} />
+            <CustomIcon name="chevron-forward" size={20} color={COLORS.text.gray} />
           </TouchableOpacity>
         </View>
 
@@ -195,13 +195,13 @@ export const PrivacySecuritySettings: React.FC<PrivacySecuritySettingsProps> = (
             }}
           >
             <View style={styles.settingIcon}>
-              <Ionicons name="download-outline" size={22} color={COLORS.primary} />
+              <CustomIcon name="download-outline" size={22} color={COLORS.primary} />
             </View>
             <View style={styles.settingTextContainer}>
               <Text style={styles.settingText}>Export Data</Text>
               <Text style={styles.settingDescription}>Download a copy of your data</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.gray} />
+            <CustomIcon name="chevron-forward" size={20} color={COLORS.text.gray} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -232,7 +232,7 @@ export const PrivacySecuritySettings: React.FC<PrivacySecuritySettingsProps> = (
             }}
           >
             <View style={styles.settingIcon}>
-              <Ionicons name="trash-outline" size={22} color={COLORS.error} />
+              <CustomIcon name="trash-outline" size={22} color={COLORS.error} />
             </View>
             <View style={styles.settingTextContainer}>
               <Text style={[styles.settingText, { color: COLORS.error }]}>Delete Account</Text>

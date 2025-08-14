@@ -3,7 +3,7 @@ export {};
 
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import { COLORS } from '../constants/colors';
 import { usePathname, useRouter } from 'expo-router';
 import { useCart } from '../context/CartContext';
@@ -68,7 +68,7 @@ export default function BottomNavigation() {
                   activeOpacity={0.7}
                 >
                   <View style={[styles.tabInner, active && styles.activeTab]}>
-                    <Ionicons
+                    <CustomIcon
                       name={active ? (tab.activeIcon as any) : (tab.icon as any)}
                       size={24}
                       color={active ? COLORS.primary : COLORS.text.gray}
@@ -114,7 +114,7 @@ export default function BottomNavigation() {
               activeOpacity={0.7}
             >
               <View style={[styles.tabInner, active && styles.activeTab]}>
-                <Ionicons
+                <CustomIcon
                   name={active ? tab.activeIcon : tab.icon}
                   size={24}
                   color={active ? COLORS.primary : COLORS.text.gray}

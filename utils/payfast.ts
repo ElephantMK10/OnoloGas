@@ -1,7 +1,6 @@
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
-import CryptoJS from 'crypto-js';
-import MD5 from 'crypto-js/md5';
+import * as Crypto from 'expo-crypto';
 import { getPaymentReturnUrls } from '../config/deployment';
 
 // PayFast configuration for production
@@ -60,7 +59,7 @@ function quotePlus(str: string): string {
     .replace(/\*/g, '%2A');
 }
 
-function generateSignature(data: Record<string, string | number>, passphrase?: string): string {
+async function generateSignature(data: Record<string, string | number>, passphrase?: string): Promise<string> {
   let pfOutput = '';
   for (const key of PAYFAST_FIELD_ORDER) {
     if (data[key] !== undefined && data[key] !== '') {
@@ -75,7 +74,11 @@ function generateSignature(data: Record<string, string | number>, passphrase?: s
   // Debug log
   console.log('--- PAYFAST DEBUG ---');
   console.log('String to hash:', getString);
-  let signature = MD5(getString).toString();
+  const signature = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.MD5,
+    getString
+  );
+
   console.log('Signature:', signature);
   console.log('---------------------');
   return signature;
@@ -89,14 +92,14 @@ function getPayFastUrls(orderId: string) {
 }
 
 // Create PayFast payment URL with exact field names and validation
-export function createPayFastPayment(orderData: {
+export async function createPayFastPayment(orderData: {
   orderId: string;
   amount: number;
   customerName: string;
   customerEmail: string;
   itemName: string;
   itemDescription?: string;
-}): string {
+}): Promise<string> {
   console.log('=== Creating PayFast Payment ===');
   console.log('Order data:', orderData);
 
@@ -129,7 +132,7 @@ export function createPayFastPayment(orderData: {
   console.log('Payment data before signature:', paymentData);
 
   // Generate signature using the corrected algorithm
-  const signature = generateSignature(paymentData, PAYFAST_CONFIG.saltPassphrase);
+  const signature = await generateSignature(paymentData, PAYFAST_CONFIG.saltPassphrase);
   paymentData.signature = signature;
 
   console.log('Final payment data with signature:', paymentData);
@@ -148,7 +151,7 @@ export function createPayFastPayment(orderData: {
 }
 
 // Verify PayFast payment signature (for webhook handling)
-export function verifyPayFastPayment(data: Record<string, string>): boolean {
+export async function verifyPayFastPayment(data: Record<string, string>): Promise<boolean> {
   console.log('=== Verifying PayFast Payment ===');
   console.log('Received data:', data);
   
@@ -160,7 +163,7 @@ export function verifyPayFastPayment(data: Record<string, string>): boolean {
   }
   
   // Generate expected signature
-  const expectedSignature = generateSignature(dataWithoutSignature, PAYFAST_CONFIG.saltPassphrase);
+  const expectedSignature = await generateSignature(dataWithoutSignature, PAYFAST_CONFIG.saltPassphrase);
   
   console.log('Received signature:', signature);
   console.log('Expected signature:', expectedSignature);
@@ -234,7 +237,7 @@ export async function initiatePayFastPayment(orderData: {
     validatePayFastData(orderData);
     
     // Create payment URL
-    const paymentUrl = createPayFastPayment(orderData);
+    const paymentUrl = await createPayFastPayment(orderData);
     
     console.log('Opening PayFast payment URL...');
     console.log('PayFast URL:', paymentUrl);
@@ -248,7 +251,7 @@ export async function initiatePayFastPayment(orderData: {
 }
 
 // Test signature generation with known values (only used for testing)
-export function testSignatureGeneration() {
+export async function testSignatureGeneration(): Promise<string> {
   console.log('=== Testing PayFast Signature Generation ===');
   
   // Test with production credentials
@@ -266,7 +269,7 @@ export function testSignatureGeneration() {
     item_name: 'Test Payment',
   };
   
-  const signature = generateSignature(testData, PAYFAST_CONFIG.saltPassphrase);
+  const signature = await generateSignature(testData, PAYFAST_CONFIG.saltPassphrase);
   console.log('Test signature result:', signature);
   console.log('=== End Test ===');
   

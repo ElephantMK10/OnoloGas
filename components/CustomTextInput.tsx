@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, ComponentProps } from 'react';
 import {
   TextInput,
   StyleSheet,
@@ -10,18 +10,24 @@ import {
   Keyboard,
   Platform,
   TouchableOpacity,
+  GestureResponderEvent,
+  NativeSyntheticEvent,
+  TextInputFocusEventData,
+  TextInputSubmitEditingEventData,
 } from 'react-native';
 import { COLORS } from '../constants/colors';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
+
+type CustomIconProps = ComponentProps<typeof CustomIcon>;
 
 interface CustomTextInputProps extends TextInputProps {
   label?: string;
   containerStyle?: StyleProp<ViewStyle>;
   error?: string;
   isTextArea?: boolean;
-  leftIcon?: string;
-  rightIcon?: string;
-  onRightIconPress?: () => void;
+  leftIcon?: CustomIconProps['name'];
+  rightIcon?: CustomIconProps['name'];
+  onRightIconPress?: (event: GestureResponderEvent) => void;
 }
 
 export default function CustomTextInput({
@@ -40,7 +46,7 @@ export default function CustomTextInput({
   const inputRef = useRef<TextInput>(null);
 
   // Enhanced keyboard dismissal
-  const handleSubmitEditing = (e) => {
+  const handleSubmitEditing = (e: NativeSyntheticEvent<TextInputSubmitEditingEventData>) => {
     // Always dismiss keyboard when done is pressed or when editing finishes
     if (returnKeyType === 'done' || isTextArea) {
       Keyboard.dismiss();
@@ -53,7 +59,7 @@ export default function CustomTextInput({
   };
 
   // Handle focus lost to ensure keyboard dismisses
-  const handleBlur = (e) => {
+  const handleBlur = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
     if (rest.onBlur) {
       rest.onBlur(e);
     }
@@ -67,7 +73,7 @@ export default function CustomTextInput({
   };
 
   // Handle focus to ensure proper behavior on web
-  const handleFocus = (e) => {
+  const handleFocus = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
     if (rest.onFocus) {
       rest.onFocus(e);
     }
@@ -83,7 +89,7 @@ export default function CustomTextInput({
       >
         {leftIcon && (
           <View style={styles.leftIconContainer}>
-            <Ionicons name={leftIcon} size={20} color={COLORS.text.gray} />
+            <CustomIcon name={leftIcon} size={20} color={COLORS.text.gray} />
           </View>
         )}
         <TextInput
@@ -127,7 +133,7 @@ export default function CustomTextInput({
         />
         {rightIcon && (
           <TouchableOpacity style={styles.rightIconContainer} onPress={onRightIconPress}>
-            <Ionicons name={rightIcon} size={20} color={COLORS.text.gray} />
+            <CustomIcon name={rightIcon} size={20} color={COLORS.text.gray} />
           </TouchableOpacity>
         )}
       </TouchableOpacity>

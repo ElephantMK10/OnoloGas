@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { COMPANY } from '../constants/company';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import Button from './Button';
 import { useRouter } from 'expo-router';
 import MapView, { Marker } from 'react-native-maps';
@@ -44,7 +44,7 @@ export default function LocationCard({ onDeliveryRequest }: LocationCardProps) {
       <View style={styles.locationInfo}>
         <View style={styles.locationHeader}>
           <View style={styles.iconContainer}>
-            <Ionicons name="location" size={24} color={COLORS.primary} />
+            <CustomIcon name="location" size={24} color={COLORS.primary} />
           </View>
           <View>
             <Text style={styles.locationName}>{COMPANY.location.name}</Text>

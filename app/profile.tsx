@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
 import Header from '../components/Header';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from '../components/CustomIcon';
 import Button from '../components/Button';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,12 +31,14 @@ import Toast from 'react-native-toast-message';
 import CustomTextInput from '../components/CustomTextInput';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import ProfileUpdateProgress from '../components/ProfileUpdateProgress';
+import { z } from 'zod';
 import { ProfileUpdateSchema, validateData, getValidationErrors } from '../validation/schemas/index';
 import { supabase } from '../lib/supabase';
 import ProfileSettingsScreen from '../components/ProfileSettingsScreen';
+import { Order, OrderItem } from '../services/interfaces/IOrderService';
 
 type TabType = 'orders' | 'profile' | 'settings';
-type SettingsScreenType = 'main' | 'notifications' | 'privacy' | 'payment' | 'help';
+type SettingsScreenType = string; // Allow any string to match ProfileSettingsScreen's expectations
 
 interface FormErrors {
   [key: string]: string;
@@ -107,7 +109,7 @@ export default function ProfileScreen() {
     country: 'South Africa',
   });
   const [formErrors, setFormErrors] = useState<FormErrors>({});
-  const [settingsScreen, setSettingsScreen] = useState<SettingsScreenType>('main');
+  const [settingsScreen, setSettingsScreen] = useState<string>('main');
 
   // Ref to track if component is mounted
   const isMountedRef = useRef(true);
@@ -184,21 +186,40 @@ export default function ProfileScreen() {
   }, []);
 
   const handleChange = useCallback(
-    (field: string, value: string) => {
+    (field: keyof FormData, value: string) => {
       setFormData((prev) => ({ ...prev, [field]: value }));
 
       // Clear existing error for this field
       if (formErrors[field]) {
-        setFormErrors((prev) => ({ ...prev, [field]: '' }));
+        setFormErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors[field];
+          return newErrors;
+        });
       }
 
       // Real-time validation using Zod
-      const fieldValidation = validateData(ProfileUpdateSchema.pick({ [field]: true }), { [field]: value });
+      const fieldSchema = z.object({
+        [field]: ProfileUpdateSchema.shape[field as keyof typeof ProfileUpdateSchema.shape]
+      });
+      
+      const fieldValidation = validateData(fieldSchema, { [field]: value });
+
       if (!fieldValidation.success) {
         const errors = getValidationErrors(fieldValidation.errors);
-        if (errors[field]) {
-          setFormErrors((prev) => ({ ...prev, [field]: errors[field] }));
-        }
+        // Create a new errors object with all values as strings
+        const newErrors: FormErrors = {};
+        Object.entries(errors).forEach(([key, val]) => {
+          if (val) newErrors[key] = val;
+        });
+        
+        setFormErrors(prev => {
+          const updatedErrors = { ...prev };
+          Object.entries(newErrors).forEach(([key, value]) => {
+            if (value) updatedErrors[key] = value;
+          });
+          return updatedErrors;
+        });
       }
     },
     [formErrors],
@@ -206,7 +227,10 @@ export default function ProfileScreen() {
 
   const validateForm = useCallback((): boolean => {
     // Validate the complete form data using Zod
-    const validationResult = validateData(ProfileUpdateSchema, formData);
+    const validationResult = validateData(
+      ProfileUpdateSchema,
+      formData
+    );
 
     if (!validationResult.success) {
       const errors = getValidationErrors(validationResult.errors);
@@ -483,7 +507,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const renderOrderItem = ({ item }) => (
+  const renderOrderItem = ({ item }: { item: Order }) => (
     <TouchableOpacity style={styles.orderCard} onPress={() => handleViewOrderDetails(item.id)}>
       <View style={styles.orderHeader}>
         <View>
@@ -505,7 +529,7 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.orderItems}>
-        {item.items.slice(0, 2).map((orderItem, index) => (
+        {item.items.slice(0, 2).map((orderItem: OrderItem, index: number) => (
           <View key={index} style={styles.orderItemRow}>
             <Text style={styles.orderItemName}>
               {orderItem.productName} x{orderItem.quantity}
@@ -532,7 +556,7 @@ export default function ProfileScreen() {
             onPress={() => handleViewOrderDetails(item.id)}
           >
             <Text style={styles.viewDetailsText}>View Details</Text>
-            <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+            <CustomIcon name="chevron-forward" size={16} color={COLORS.primary} />
           </TouchableOpacity>
 
           {item.status === 'pending' && (
@@ -551,7 +575,7 @@ export default function ProfileScreen() {
   // Empty state for orders
   const renderOrdersEmptyState = () => (
     <View style={styles.emptyStateContainer}>
-      <Ionicons name="document-text-outline" size={64} color={COLORS.text.gray} />
+      <CustomIcon name="document-text-outline" size={64} color={COLORS.text.gray} />
       <Text style={styles.emptyStateText}>You have no orders yet.</Text>
       <Button
         title="Browse Products"
@@ -672,8 +696,8 @@ export default function ProfileScreen() {
                           }
                           // Parse Mapbox feature context for structured address fields
                           const context = feature.context || [];
-                          const getContext = (type) =>
-                            context.find((c) => c.id.startsWith(type + '.'))?.text || '';
+                          const getContext = (type: string) =>
+                            context.find((c: { id: string }) => c.id.startsWith(type + '.'))?.text || '';
                           setFormData((prev) => ({
                             ...prev,
                             streetAddress: feature.place_name || '',
@@ -871,14 +895,14 @@ export default function ProfileScreen() {
       <View style={styles.headerWrapper}>
         <Header showBackButton />
         <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-          <Ionicons name="close" size={24} color={COLORS.text.white} />
+          <CustomIcon name="close-circle-outline" size={24} color={COLORS.text.white} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.content}>
         <View style={styles.profileHeader}>
           <View style={styles.avatarContainer}>
-            <Ionicons name="person" size={40} color={COLORS.text.white} />
+            <CustomIcon name="person" size={40} color={COLORS.text.white} />
           </View>
           <Text style={styles.userName}>
             {user?.name || 'Guest User'}

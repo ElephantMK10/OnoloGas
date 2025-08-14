@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import { COLORS } from '../constants/colors';
 import { NotificationsSettings } from './settings/NotificationsSettings';
 import { PrivacySecuritySettings } from './settings/PrivacySecuritySettings';
@@ -60,7 +60,7 @@ export default function ProfileSettingsScreen({
             style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}
             onPress={() => setSettingsScreen('main')}
           >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text.white} />
+            <CustomIcon name="arrow-back" size={24} color={COLORS.text.white} />
             <Text style={{ color: COLORS.text.white, fontSize: 16, marginLeft: 12 }}>Back to Settings</Text>
           </TouchableOpacity>
           
@@ -110,32 +110,32 @@ export default function ProfileSettingsScreen({
               style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}
               onPress={() => setSettingsScreen('notifications')}
             >
-              <Ionicons name="notifications-outline" size={24} color={COLORS.text.white} />
+              <CustomIcon name="notifications-outline" size={24} color={COLORS.text.white} />
               <Text style={{ color: COLORS.text.white, fontSize: 16, marginLeft: 12 }}>Notifications</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.text.gray} style={{ marginLeft: 'auto' }} />
+              <CustomIcon name="chevron-forward" size={20} color={COLORS.text.gray} style={{ marginLeft: 'auto' }} />
             </TouchableOpacity>
             <TouchableOpacity
               style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}
               onPress={() => setSettingsScreen('privacy')}
             >
-              <Ionicons name="lock-closed-outline" size={24} color={COLORS.text.white} />
+              <CustomIcon name="lock-closed-outline" size={24} color={COLORS.text.white} />
               <Text style={{ color: COLORS.text.white, fontSize: 16, marginLeft: 12 }}>Privacy & Security</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.text.gray} style={{ marginLeft: 'auto' }} />
+              <CustomIcon name="chevron-forward" size={20} color={COLORS.text.gray} style={{ marginLeft: 'auto' }} />
             </TouchableOpacity>
             <TouchableOpacity
               style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}
               onPress={() => router.push('/(tabs)/chat')}
             >
-              <Ionicons name="help-circle-outline" size={24} color={COLORS.text.white} />
+              <CustomIcon name="help-circle-outline" size={24} color={COLORS.text.white} />
               <Text style={{ color: COLORS.text.white, fontSize: 16, marginLeft: 12 }}>Help & Support</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.text.gray} style={{ marginLeft: 'auto' }} />
+              <CustomIcon name="chevron-forward" size={20} color={COLORS.text.gray} style={{ marginLeft: 'auto' }} />
             </TouchableOpacity>
             {user?.isGuest && onNewGuestSession && (
               <TouchableOpacity
                 style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}
                 onPress={onNewGuestSession}
               >
-                <Ionicons name="refresh-outline" size={24} color={COLORS.primary} />
+                <CustomIcon name="refresh-outline" size={24} color={COLORS.primary} />
                 <Text style={{ color: COLORS.primary, fontSize: 16, marginLeft: 12 }}>
                   Start New Guest Session
                 </Text>
@@ -146,7 +146,7 @@ export default function ProfileSettingsScreen({
                 style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}
                 onPress={onLogout}
               >
-                <Ionicons name="log-out-outline" size={24} color={COLORS.error} />
+                <CustomIcon name="log-out-outline" size={24} color={COLORS.error} />
                 <Text style={{ color: COLORS.error, fontSize: 16, marginLeft: 12 }}>
                   {user?.isGuest ? 'Clear Guest Session' : 'Sign Out'}
                 </Text>

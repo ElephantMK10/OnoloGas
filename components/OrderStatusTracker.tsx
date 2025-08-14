@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import { COLORS } from '../constants/colors';
 
 interface OrderStatusTrackerProps {
@@ -91,7 +91,7 @@ export default function OrderStatusTracker({
       <View style={styles.container}>
         <Text style={styles.title}>Order Status</Text>
         <View style={styles.cancelledContainer}>
-          <Ionicons name="close-circle" size={48} color={COLORS.error} />
+          <CustomIcon name="close-circle" size={48} color={COLORS.error} />
           <Text style={styles.cancelledText}>Order Cancelled</Text>
           <Text style={styles.statusMessage}>{getStatusMessage()}</Text>
         </View>
@@ -119,7 +119,7 @@ export default function OrderStatusTracker({
             <View key={step.key} style={styles.timelineStep}>
               <View style={styles.timelineRow}>
                 <View style={[styles.stepIcon, { backgroundColor: getStatusColor(index) }]}>
-                  <Ionicons name={step.icon as any} size={16} color={COLORS.text.white} />
+                  <CustomIcon name={step.icon as any} size={16} color={COLORS.text.white} />
                 </View>
 
                 <View style={styles.stepContent}>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Modal } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import CustomIcon from './CustomIcon';
 import { COLORS } from '../constants/colors';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -147,7 +147,7 @@ export default function DeliveryScheduler({
       <View style={styles.dateSection}>
         <Text style={styles.label}>Delivery Date</Text>
         <View style={styles.dateNotice}>
-          <Ionicons name="information-circle-outline" size={16} color={COLORS.primary} />
+          <CustomIcon name="information-circle-outline" size={16} color={COLORS.primary} />
           <Text style={styles.dateNoticeText}>Deliveries available from tomorrow onwards</Text>
         </View>
         <TouchableOpacity
@@ -156,7 +156,7 @@ export default function DeliveryScheduler({
           activeOpacity={0.7}
         >
           <View style={styles.dateContent}>
-            <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
+            <CustomIcon name="calendar-outline" size={20} color={COLORS.primary} />
             <View style={styles.dateTextContainer}>
               <Text style={styles.dateText}>{getDateDisplayText(selectedDate)}</Text>
               {!isTomorrow(selectedDate) && !isDayAfterTomorrow(selectedDate) && (
@@ -164,7 +164,7 @@ export default function DeliveryScheduler({
               )}
             </View>
           </View>
-          <Ionicons name="chevron-down" size={20} color={COLORS.text.white} />
+          <CustomIcon name="chevron-down" size={20} color={COLORS.text.white} />
         </TouchableOpacity>
       </View>
 
