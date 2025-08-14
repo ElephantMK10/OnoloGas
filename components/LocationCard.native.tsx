@@ -1,11 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Platform, Linking } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { COMPANY } from '../constants/company';
 import CustomIcon from './CustomIcon';
 import Button from './Button';
 import { useRouter } from 'expo-router';
-import MapView, { Marker } from 'react-native-maps';
 
 interface LocationCardProps {
   onDeliveryRequest?: () => void;
@@ -19,28 +18,40 @@ export default function LocationCard({ onDeliveryRequest }: LocationCardProps) {
     router.push('/(tabs)/order');
   };
 
+  const openInMaps = () => {
+    const { latitude, longitude } = COMPANY.location.coordinates;
+    const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
+    const latLng = `${latitude},${longitude}`;
+    const label = encodeURIComponent(COMPANY.location.name);
+    const url = Platform.select({
+      ios: `${scheme}${label}@${latLng}`,
+      android: `${scheme}${latLng}(${label})`
+    });
+    
+    if (url) {
+      Linking.openURL(url);
+    }
+  };
+
+  // Generate static map URL using Mapbox
+  const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/light-v10/static/pin-l+${encodeURIComponent(COLORS.primary.replace('#', ''))}(${COMPANY.location.coordinates.longitude},${COMPANY.location.coordinates.latitude})/${COMPANY.location.coordinates.longitude},${COMPANY.location.coordinates.latitude},15,0/600x300@2x?access_token=${process.env.EXPO_PUBLIC_MAPBOX_TOKEN}`;
+
   return (
     <View style={styles.container}>
-      <View style={styles.mapContainer}>
-        <MapView
+      <TouchableOpacity 
+        style={styles.mapContainer} 
+        onPress={openInMaps}
+        activeOpacity={0.9}
+      >
+        <Image 
+          source={{ uri: staticMapUrl }} 
           style={styles.map}
-          initialRegion={{
-            latitude: COMPANY.location.coordinates.latitude,
-            longitude: COMPANY.location.coordinates.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-        >
-          <Marker
-            coordinate={{
-              latitude: COMPANY.location.coordinates.latitude,
-              longitude: COMPANY.location.coordinates.longitude,
-            }}
-            title={COMPANY.location.name}
-            description={COMPANY.location.address}
-          />
-        </MapView>
-      </View>
+          resizeMode="cover"
+        />
+        <View style={styles.mapOverlay}>
+          <Text style={styles.mapText}>Tap to open in maps</Text>
+        </View>
+      </TouchableOpacity>
       <View style={styles.locationInfo}>
         <View style={styles.locationHeader}>
           <View style={styles.iconContainer}>
@@ -75,6 +86,20 @@ const styles = StyleSheet.create({
   map: {
     width: '100%',
     height: '100%',
+  },
+  mapOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  mapText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '500',
   },
   locationInfo: {
     padding: 16,

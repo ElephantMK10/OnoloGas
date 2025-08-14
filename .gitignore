@@ -9,6 +9,14 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Metro
+.metro-cache/
+*.log
+
+# Build artifacts
+/build
+/dist-analyze
+
 # Native
 *.orig.*
 *.jks

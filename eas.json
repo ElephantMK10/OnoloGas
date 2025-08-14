@@ -1,38 +1,33 @@
 {
   "cli": {
-    "version": ">= 16.13.4",
+    "version": ">= 3.12.0",
     "appVersionSource": "remote"
   },
   "build": {
-    "base": {
-      "node": "20.18.0",
-      "ios": {
-        "cocoapods": "1.15.2"
-      }
-    },
     "development": {
-      "extends": "base",
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EAS_BUILD": "true"
-      }
+      "distribution": "internal"
     },
     "preview": {
-      "extends": "base",
       "distribution": "internal",
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release"
+      },
+      "cache": {
+        "key": "ios-preview-{{ checksum \"package-lock.json\" }}"
+      },
       "env": {
-        "EAS_BUILD": "true"
+        "EXPO_USE_FAST_RESOLVER": "1",
+        "NODE_OPTIONS": "--max-old-space-size=4096"
       }
     },
     "production": {
-      "extends": "base",
-      "autoIncrement": true,
-      "env": {
-        "EAS_BUILD": "true"
-      },
       "ios": {
-        "resourceClass": "large"
+        "buildConfiguration": "Release"
+      },
+      "cache": {
+        "key": "ios-production-{{ checksum \"package-lock.json\" }}"
       }
     }
   },
