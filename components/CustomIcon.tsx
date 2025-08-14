@@ -1,28 +1,11 @@
-import { createIconSetFromIcoMoon, Ionicons } from '@expo/vector-icons';
-import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { ComponentProps } from 'react';
 
-// This component is a workaround to force the bundler to only include the Ionicons font
-// and not all the other vector icon fonts.
-
-const CustomIcon = createIconSetFromIcoMoon(
-  // We don't need a config file, just the font.
-  // The glyph map is embedded in the font file.
-  {},
-  'Ionicons',
-  'Ionicons.ttf'
-);
-
+// Directly export Ionicons with proper TypeScript types
 type CustomIconProps = ComponentProps<typeof Ionicons>;
 
-export default (props: CustomIconProps) => {
-  const [fontsLoaded] = useFonts({
-    Ionicons: require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'),
-  });
+// Export as a named component for better type safety
+export const CustomIcon = Ionicons;
 
-  if (!fontsLoaded) {
-    return null;
-  }
-
-  return <CustomIcon {...props} />;
-};
+// Default export for backward compatibility
+export default CustomIcon;
