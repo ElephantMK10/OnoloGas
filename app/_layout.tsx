@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CartProvider } from '../context/CartContext';
@@ -10,13 +10,13 @@ import { NotificationsProvider } from '../contexts/NotificationsContext';
 import { COLORS } from '../constants/colors';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useRouter, useSegments } from 'expo-router';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { initializeConnectionTest } from '../utils/connectionTest';
 import { queryClient } from '../utils/queryClient';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '@/components/LoadingScreen';
 import LogoutTransition from '../components/LogoutTransition';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // import PerformanceMonitor from '../components/PerformanceMonitor';
 
@@ -120,11 +120,11 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
           <ContextProviders>
             <StatusBar style="light" />
-
             <AuthGuard>
             <Stack
               screenOptions={{
@@ -236,10 +236,11 @@ export default function RootLayout() {
                 }}
               />
             </Stack>
-          </AuthGuard>
-          {/* <PerformanceMonitor /> */}
-        </ContextProviders>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+            </AuthGuard>
+            {/* <PerformanceMonitor /> */}
+          </ContextProviders>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

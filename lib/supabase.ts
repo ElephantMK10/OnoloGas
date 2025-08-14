@@ -4,27 +4,56 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+// Safely get environment variables with fallbacks
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Debug logging for environment variables
-console.log('Supabase Environment Variables:', {
-  url: supabaseUrl ? 'Set' : 'Missing',
-  key: supabaseAnonKey ? 'Set' : 'Missing',
-  urlValue: supabaseUrl,
-  keyValue: supabaseAnonKey ? `${supabaseAnonKey.substring(0, 10)}...` : 'undefined',
-});
+// Debug logging for environment variables (safe for production)
+const logEnv = () => {
+  if (__DEV__) {
+    console.log('Supabase Environment Variables:', {
+      url: supabaseUrl ? 'Set' : 'Missing',
+      key: supabaseAnonKey ? 'Set' : 'Missing',
+      urlValue: supabaseUrl ? `${supabaseUrl.substring(0, 25)}...` : 'undefined',
+      keyValue: supabaseAnonKey ? `${supabaseAnonKey.substring(0, 10)}...` : 'undefined',
+    });
+  }
+};
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables:', {
-    EXPO_PUBLIC_SUPABASE_URL: !!supabaseUrl,
-    EXPO_PUBLIC_SUPABASE_ANON_KEY: !!supabaseAnonKey,
-  });
+// Check for missing configuration
+const checkConfig = () => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    const error = new Error(
+      'Supabase configuration is missing. Please ensure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are properly configured.'
+    ) as any;
+    
+    error.isConfigError = true;
+    error.missingConfig = {
+      EXPO_PUBLIC_SUPABASE_URL: !supabaseUrl,
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: !supabaseAnonKey,
+    };
+    
+    if (__DEV__) {
+      console.error('Missing Supabase environment variables:', error.missingConfig);
+      console.error('Please check your .env file or EAS environment variables');
+    }
+    
+    return { valid: false, error };
+  }
+  return { valid: true };
+};
 
-  // Provide more helpful error message
-  throw new Error(
-    'Supabase configuration is missing. Please ensure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are set in your .env file.',
-  );
+// Log environment variables in development
+logEnv();
+
+// Check configuration early
+const configCheck = checkConfig();
+if (!configCheck.valid) {
+  // In development, we want to throw early to catch configuration issues
+  if (__DEV__) {
+    throw configCheck.error;
+  }
+  // In production, we'll handle missing config more gracefully
 }
 
 // Enhanced error handler for network requests
@@ -96,10 +125,32 @@ const retryRequest = async (requestFn: () => Promise<any>, maxRetries = 3, delay
   }
 };
 
-// Supabase client setup for React Native/Expo app.
-// Handles environment variable loading, error handling, and connection testing.
-// Usage: Import and use the exported supabase client throughout the app.
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Create a safe client that won't crash if config is invalid
+const createSafeClient = () => {
+  if (!configCheck.valid) {
+    // Return a mock client with error handling for production
+    if (!__DEV__) {
+      return {
+        auth: {
+          signIn: () => Promise.resolve({ error: { message: 'Configuration error' } }),
+          signUp: () => Promise.resolve({ error: { message: 'Configuration error' } }),
+          signOut: () => Promise.resolve({ error: { message: 'Configuration error' } }),
+          user: () => ({ data: { user: null }, error: { message: 'Configuration error' } }),
+          session: () => ({ data: { session: null }, error: { message: 'Configuration error' } }),
+        },
+        from: () => ({
+          select: () => Promise.resolve({ data: null, error: { message: 'Configuration error' } }),
+          insert: () => Promise.resolve({ data: null, error: { message: 'Configuration error' } }),
+          update: () => Promise.resolve({ data: null, error: { message: 'Configuration error' } }),
+          delete: () => Promise.resolve({ data: null, error: { message: 'Configuration error' } }),
+        }),
+      };
+    }
+    throw configCheck.error;
+  }
+
+  // Create the actual Supabase client
+  return createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
@@ -156,8 +207,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     },
     // Add timeout configuration
     timeout: 20000, // 20 second timeout for initial connection
-  },
-});
+    },
+  });
+};
+
+// Export the safe client
+export const supabase = createSafeClient();
+
+// Add a method to check if Supabase is properly configured
+export const isSupabaseConfigured = () => configCheck.valid;
 
 // Enhanced connection test function with better error handling
 export const testSupabaseConnection = async () => {
