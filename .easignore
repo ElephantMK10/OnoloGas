@@ -1,0 +1,6 @@
+# Ignore files and directories from the workspace root
+../../node_modules
+../../*
+
+# Do not ignore the lock file, as it's needed for dependency installation
+!../../package-lock.json

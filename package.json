@@ -11,7 +11,11 @@
     "build": "expo export --platform web && cp -r public/* dist/",
     "lint": "expo lint",
     "format": "prettier --write .",
-    "test": "jest"
+    "test": "jest",
+    "clean": "rm -rf node_modules .expo ios android && npm cache clean --force",
+    "clean:install": "npm run clean && npm install",
+    "prebuild:clean": "expo prebuild --clear",
+    "build:ios": "EAS_BUILD=true eas build --platform ios --profile production"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
@@ -25,7 +29,6 @@
     "crypto-js": "^4.2.0",
     "expo": "53.0.20",
     "expo-constants": "~17.1.3",
-
     "expo-font": "~13.3.2",
     "expo-linking": "~7.1.6",
     "expo-notifications": "~0.31.4",
