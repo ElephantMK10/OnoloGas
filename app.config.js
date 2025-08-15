@@ -3,6 +3,10 @@ export default {
     entryPoint: "./index.tsx",
     name: "Onolo Gas",
     slug: "onolo-group-orders",
+    updates: {
+      url: "https://u.expo.dev/e090dcb7-fcfe-45d5-80c8-9c032738c2bb"
+    },
+    runtimeVersion: "1.0.0",
     scheme: "onolo",
     version: "1.0.0",
     orientation: "portrait",
