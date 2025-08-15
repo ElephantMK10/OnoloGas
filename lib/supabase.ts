@@ -1,12 +1,48 @@
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, PostgrestError } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// Safely get environment variables with fallbacks
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+// Get environment variables from either EAS (in production) or process.env (in development)
+const getConfig = () => {
+  // In EAS builds, values come from Constants.expoConfig.extra
+  // In development, they come from process.env
+  const config = {
+    supabaseUrl: Constants.expoConfig?.extra?.supabaseUrl ?? process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
+    supabaseAnonKey: Constants.expoConfig?.extra?.supabaseAnonKey ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
+    mapboxToken: Constants.expoConfig?.extra?.mapboxToken ?? process.env.EXPO_PUBLIC_MAPBOX_TOKEN
+  };
+
+  // Debug logging (only in development)
+  if (__DEV__) {
+    console.log('Supabase Config:', {
+      source: Constants.expoConfig?.extra?.supabaseUrl ? 'EAS Build' : 'Local Development',
+      url: config.supabaseUrl ? 'Set' : 'Missing',
+      key: config.supabaseAnonKey ? 'Set' : 'Missing',
+      urlValue: config.supabaseUrl ? `${config.supabaseUrl.substring(0, 25)}...` : 'undefined',
+      keyValue: config.supabaseAnonKey ? `${config.supabaseAnonKey.substring(0, 10)}...` : 'undefined',
+    });
+  }
+
+  return config;
+};
+
+const { supabaseUrl, supabaseAnonKey } = getConfig();
+
+// Production runtime check for configuration
+if (!__DEV__ && (!supabaseUrl || !supabaseAnonKey)) {
+  console.error('=== CRITICAL: PRODUCTION CONFIG MISSING ===');
+  console.error('EAS secrets may not be configured correctly');
+  console.error('URL exists:', !!supabaseUrl);
+  console.error('Key exists:', !!supabaseAnonKey);
+  
+  // This will be visible in production logs
+  if (typeof process !== 'undefined' && process.env) {
+    console.error('Process environment keys:', Object.keys(process.env).filter(k => k.includes('SUPABASE') || k.includes('EXPO')));
+  }
+}
 
 // Debug logging for environment variables (safe for production)
 const logEnv = () => {
@@ -22,24 +58,41 @@ const logEnv = () => {
 
 // Check for missing configuration
 const checkConfig = () => {
+  const isEAS = !!Constants.expoConfig?.extra?.supabaseUrl;
+  const configSource = isEAS ? 'EAS Build' : 'Local Development';
+  
   if (!supabaseUrl || !supabaseAnonKey) {
-    const error = new Error(
-      'Supabase configuration is missing. Please ensure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are properly configured.'
-    ) as any;
+    const errorMessage = isEAS 
+      ? 'Supabase configuration is missing from EAS build. Please ensure you have set up the required EAS secrets.'
+      : 'Supabase configuration is missing. Please ensure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are set in your .env file.';
+      
+    const error = new Error(errorMessage) as any;
     
     error.isConfigError = true;
     error.missingConfig = {
       EXPO_PUBLIC_SUPABASE_URL: !supabaseUrl,
       EXPO_PUBLIC_SUPABASE_ANON_KEY: !supabaseAnonKey,
+      configSource
     };
     
     if (__DEV__) {
-      console.error('Missing Supabase environment variables:', error.missingConfig);
-      console.error('Please check your .env file or EAS environment variables');
+      console.error(`[${configSource}] Missing Supabase configuration:`, error.missingConfig);
+      if (isEAS) {
+        console.error('Please run:');
+        console.error('  eas secret:create --name EXPO_PUBLIC_SUPABASE_URL --value "YOUR_SUPABASE_URL"');
+        console.error('  eas secret:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "YOUR_SUPABASE_ANON_KEY"');
+      } else {
+        console.error('Please check your .env file or set up EAS secrets for production builds');
+      }
     }
     
     return { valid: false, error };
   }
+  
+  if (__DEV__) {
+    console.log(`[${configSource}] Supabase configuration is valid`);
+  }
+  
   return { valid: true };
 };
 
@@ -143,6 +196,16 @@ const createSafeClient = () => {
           insert: () => Promise.resolve({ data: null, error: { message: 'Configuration error' } }),
           update: () => Promise.resolve({ data: null, error: { message: 'Configuration error' } }),
           delete: () => Promise.resolve({ data: null, error: { message: 'Configuration error' } }),
+          limit: () => ({
+            select: () => Promise.resolve({ data: null, error: { message: 'Configuration error' } })
+          })
+        } as any),
+        channel: () => ({
+          subscribe: (callback: (status: string, error?: any) => void) => {
+            callback('CHANNEL_ERROR', { message: 'Configuration error' });
+            return { unsubscribe: () => {} };
+          },
+          unsubscribe: () => {}
         }),
       };
     }
@@ -199,7 +262,7 @@ const createSafeClient = () => {
     },
     // Improved timeout and reconnection settings
     heartbeatIntervalMs: 15000, // Reduced from 30000 for faster detection
-    reconnectAfterMs: (tries) => {
+    reconnectAfterMs: (tries: number) => {
       // More aggressive reconnection strategy
       const baseDelay = Math.min(tries * 500, 5000); // Start with 500ms, max 5s
       console.log(`Realtime reconnection attempt ${tries}, waiting ${baseDelay}ms`);
@@ -284,13 +347,13 @@ export const testDatabaseOperations = async () => {
       // Test a safe read operation that doesn't create data
       const { data, error } = await supabase
         .from('profiles')
-        .select('id')
-        .limit(1);
+        .select('id', { count: 'exact' });
 
       if (error) {
         console.log('Database read test result:', error.message);
         // Even permission errors indicate the database is accessible
-        if (error.code === 'PGRST116' || error.message.includes('permission denied')) {
+        const pgError = error as PostgrestError;
+        if ((pgError.code === 'PGRST116' || pgError.message.includes('permission denied'))) {
           console.log('✅ Database is accessible (RLS working as expected)');
           return true;
         }
@@ -335,9 +398,9 @@ export const testRealtimeConnection = async (): Promise<boolean> => {
       console.log('❌ Realtime connection test timed out');
       testChannel.unsubscribe();
       resolveOnce(false);
-    }, 15000); // 15 second timeout
+    }, 15000) as unknown as NodeJS.Timeout; // 15 second timeout
 
-    testChannel.subscribe((status, error) => {
+    testChannel.subscribe((status: string, error?: any) => {
       console.log(`Realtime test status: ${status}`);
       
       if (status === 'SUBSCRIBED') {

@@ -1,0 +1,93 @@
+export default {
+  expo: {
+    entryPoint: "./index.tsx",
+    name: "Onolo Gas",
+    slug: "onolo-group-orders",
+    scheme: "onolo",
+    version: "1.0.0",
+    orientation: "portrait",
+    jsEngine: "hermes",
+    icon: "./assets/images/icon.png",
+    userInterfaceStyle: "light",
+    splash: {
+      image: "./assets/images/splash-icon.png",
+      resizeMode: "contain",
+      backgroundColor: "#000000"
+    },
+    ios: {
+      jsEngine: "hermes",
+      supportsTablet: true,
+      requireFullScreen: false,
+      infoPlist: {
+        NSAppTransportSecurity: {
+          NSAllowsArbitraryLoads: true
+        },
+        ITSAppUsesNonExemptEncryption: false,
+        UIKeyboardDismissMode: "interactive",
+        UIRequiresFullScreen: false,
+        UIStatusBarHidden: false,
+        UIViewControllerBasedStatusBarAppearance: false,
+        UIApplicationSupportsIndirectInputEvents: true
+      },
+      bundleIdentifier: "com.onologroup.orders"
+    },
+    android: {
+      jsEngine: "hermes",
+      package: "com.onologroup.orders",
+      adaptiveIcon: {
+        foregroundImage: "./assets/images/adaptive-icon.png",
+        backgroundColor: "#000000"
+      }
+    },
+    web: {
+      bundler: "metro",
+      output: "single",
+      favicon: "./assets/images/favicon.png",
+      template: "./web/index.html",
+      name: "Onolo Group Orders",
+      themeColor: "#FF6B35",
+      backgroundColor: "#000000",
+      description: "Order gas cylinders and fuel delivery from Onolo Group",
+      lang: "en",
+      scope: "/",
+      startUrl: "/",
+      display: "standalone",
+      orientation: "portrait"
+    },
+    plugins: [
+      [
+        "expo-router",
+        {
+          origin: "https://orders-onologroup.online"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/images/splash-icon.png",
+          imageWidth: 200,
+          resizeMode: "contain",
+          backgroundColor: "#000000"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
+    ],
+    experiments: {
+      typedRoutes: true
+    },
+    extra: {
+      // These values are populated by EAS Secrets during the build.
+      // The `|| ''` fallback prevents runtime errors if a secret is missing.
+      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
+      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+      mapboxToken: process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '',
+      router: {
+        origin: "https://orders-onologroup.online"
+      },
+      eas: {
+        projectId: "e090dcb7-fcfe-45d5-80c8-9c032738c2bb"
+      }
+    }
+  }
+};
