@@ -1,5 +1,6 @@
 {
   "expo": {
+    "entryPoint": "./index.tsx",
     "name": "Onolo Gas",
     "slug": "onolo-group-orders",
     "scheme": "onolo",
