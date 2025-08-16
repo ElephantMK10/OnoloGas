@@ -185,11 +185,21 @@ const createSafeClient = () => {
     if (!__DEV__) {
       return {
         auth: {
-          signIn: () => Promise.resolve({ error: { message: 'Configuration error' } }),
-          signUp: () => Promise.resolve({ error: { message: 'Configuration error' } }),
+          signInWithPassword: () => Promise.resolve({ 
+            data: { user: null, session: null }, 
+            error: { message: 'Configuration error' } 
+          }),
+          signUp: () => Promise.resolve({ 
+            data: { user: null, session: null }, 
+            error: { message: 'Configuration error' } 
+          }),
           signOut: () => Promise.resolve({ error: { message: 'Configuration error' } }),
           user: () => ({ data: { user: null }, error: { message: 'Configuration error' } }),
           session: () => ({ data: { session: null }, error: { message: 'Configuration error' } }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+          getSession: () => ({ data: { session: null }, error: { message: 'Configuration error' } }),
+          getUser: () => ({ data: { user: null }, error: { message: 'Configuration error' } }),
+          refreshSession: () => Promise.resolve({ data: { session: null }, error: { message: 'Configuration error' } }),
         },
         from: () => ({
           select: () => Promise.resolve({ data: null, error: { message: 'Configuration error' } }),

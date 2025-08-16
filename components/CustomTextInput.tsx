@@ -7,6 +7,7 @@ import {
   Text,
   StyleProp,
   ViewStyle,
+  TextStyle,
   Keyboard,
   Platform,
   TouchableOpacity,
@@ -18,17 +19,44 @@ import {
 import { COLORS } from '../constants/colors';
 import CustomIcon from './CustomIcon';
 
+// Type for our custom styles
+interface CustomTextInputStyles {
+  container: ViewStyle;
+  label: TextStyle;
+  inputContainer: ViewStyle;
+  input: TextStyle; // Changed to TextStyle to fix type issues
+  inputWithLeftIcon: ViewStyle;
+  inputWithRightIcon: ViewStyle;
+  leftIconContainer: ViewStyle;
+  rightIconContainer: ViewStyle;
+  textArea: ViewStyle;
+  inputError: ViewStyle;
+  errorText: TextStyle;
+}
+
 type CustomIconProps = ComponentProps<typeof CustomIcon>;
 
 interface CustomTextInputProps extends TextInputProps {
   label?: string;
   containerStyle?: StyleProp<ViewStyle>;
-  error?: string;
+  error?: string | null;
   isTextArea?: boolean;
   leftIcon?: CustomIconProps['name'];
   rightIcon?: CustomIconProps['name'];
   onRightIconPress?: (event: GestureResponderEvent) => void;
 }
+
+// Type for web-specific styles that aren't in the default React Native types
+type WebViewStyle = {
+  cursor?: 'text' | 'pointer';
+  userSelect?: 'text' | 'none' | 'auto' | 'contain' | 'all';
+  outlineStyle?: 'none';
+};
+
+// Type guard to check if the style is a web style
+const isWebViewStyle = (style: any): style is WebViewStyle => {
+  return style && (style.cursor || style.userSelect || style.outlineStyle);
+};
 
 export default function CustomTextInput({
   label,
@@ -79,11 +107,35 @@ export default function CustomTextInput({
     }
   };
 
+  // Create base style array
+  const inputContainerStyle = [
+    styles.inputContainer,
+    // @ts-ignore - Web-specific styles
+    Platform.OS === 'web' && {
+      cursor: 'text',
+      userSelect: 'none',
+    }
+  ] as StyleProp<ViewStyle>;
+  
+  const inputStyle = [
+    styles.input,
+    isTextArea && styles.textArea,
+    error && styles.inputError,
+    leftIcon && styles.inputWithLeftIcon,
+    rightIcon && styles.inputWithRightIcon,
+    // @ts-ignore - Web-specific styles
+    Platform.OS === 'web' && {
+      outlineStyle: 'none',
+      cursor: 'text',
+    },
+    style,
+  ] as StyleProp<TextStyle>;
+
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       <TouchableOpacity
-        style={styles.inputContainer}
+        style={inputContainerStyle}
         onPress={handleContainerPress}
         activeOpacity={1}
       >
@@ -94,14 +146,7 @@ export default function CustomTextInput({
         )}
         <TextInput
           ref={inputRef}
-          style={[
-            styles.input,
-            isTextArea && styles.textArea,
-            error && styles.inputError,
-            leftIcon && styles.inputWithLeftIcon,
-            rightIcon && styles.inputWithRightIcon,
-            style,
-          ]}
+          style={inputStyle}
           placeholderTextColor={COLORS.text.gray}
           returnKeyType={returnKeyType}
           onSubmitEditing={handleSubmitEditing}
@@ -142,7 +187,8 @@ export default function CustomTextInput({
   );
 }
 
-const styles = StyleSheet.create({
+// Create styles with type assertions
+const styles = StyleSheet.create<CustomTextInputStyles>({
   container: {
     marginBottom: 16,
   },
@@ -161,12 +207,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     minHeight: 48,
-    // Web-specific improvements for better interaction
-    ...(Platform.OS === 'web' && {
-      cursor: 'text',
-      userSelect: 'none',
-    }),
+    // Web-specific styles will be added inline
   },
+  // @ts-ignore - Using any to bypass complex type issues
   input: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -174,12 +217,8 @@ const styles = StyleSheet.create({
     color: COLORS.text.white,
     fontSize: 16,
     borderWidth: 0,
-    // Web-specific improvements
-    ...(Platform.OS === 'web' && {
-      outlineStyle: 'none',
-      cursor: 'text',
-    }),
-  },
+    // Web styles will be added inline
+  } as any,
   inputWithLeftIcon: {
     paddingLeft: 40,
   },
@@ -199,9 +238,10 @@ const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 80,
+    // @ts-ignore - textAlignVertical is not in the type but is valid
     textAlignVertical: 'top',
     paddingTop: 12,
-  },
+  } as unknown as ViewStyle,
   inputError: {
     borderColor: COLORS.error,
   },

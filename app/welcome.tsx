@@ -1,17 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 import { COLORS } from '../constants/colors';
 
 export default function Welcome() {
   const router = useRouter();
+
   return (
     <View style={styles.container}>
       <Text style={styles.headline}>
         Fuel <Text style={styles.white}>On</Text>
         {'\n'}Demand
       </Text>
-      <Text style={styles.subtitle}>Order LPG gas refills in seconds – we’ll handle the rest</Text>
+      <Text style={styles.subtitle}>Order LPG gas refills in seconds – we'll handle the rest</Text>
 
       {['Fast Delivery', 'Simple Ordering', 'Secure Payment'].map((item) => (
         <View key={item} style={styles.bullet}>
@@ -20,13 +21,20 @@ export default function Welcome() {
         </View>
       ))}
 
-      <TouchableOpacity
-        style={styles.button}
-        activeOpacity={0.8}
-        onPress={() => router.replace('/home')}
-      >
-        <Text style={styles.btnTxt}>Browse Products →</Text>
-      </TouchableOpacity>
+      <View style={styles.authButtons}>
+        <TouchableOpacity
+          style={[styles.button, styles.primaryButton]}
+          onPress={() => router.push('/auth/login' as Href)}
+        >
+          <Text style={styles.btnTxt}>Log in</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, styles.secondaryButton]}
+          onPress={() => router.push('/auth/register' as Href)}
+        >
+          <Text style={[styles.btnTxt, { color: COLORS.primary }]}>Sign up</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -69,15 +77,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   button: {
-    marginTop: 32,
-    backgroundColor: COLORS.primary,
+    flex: 1,
+    marginHorizontal: 8,
     borderRadius: 24,
     paddingVertical: 16,
     alignItems: 'center',
   },
+  primaryButton: {
+    backgroundColor: COLORS.primary,
+  },
   btnTxt: {
     color: '#FFFFFF',
     fontWeight: '600',
-    fontSize: 18,
+    fontSize: 16,
+  },
+  authButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 32,
+    paddingHorizontal: 16,
+  },
+  secondaryButton: {
+    backgroundColor: '#2A2A2A',
   },
 });

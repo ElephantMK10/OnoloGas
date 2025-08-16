@@ -12,17 +12,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { authService } from '../../services/auth/AuthService';
 import CustomTextInput from '../../components/CustomTextInput';
 import Button from '../../components/Button';
 import Toast from 'react-native-toast-message';
-import RegistrationSuccessOverlay from '../../components/RegistrationSuccessOverlay';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register, isLoading } = useAuth();
+  const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
+  const { register, isLoading, isAuthenticated } = useAuth();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -31,12 +30,10 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
 
   // Real-time email validation
-  const validateEmail = (email: string) => {
+  const validateEmail = (email: string | null) => {
     if (!email) {
       setEmailError(null);
       return;
@@ -56,14 +53,17 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    console.log('handleRegister called with:', { name, email, password: '***', confirmPassword: '***' });
+    if (isLoading) return; // Prevent double submit
 
     // Clear any previous errors
     setRegistrationError(null);
 
+    // Normalize inputs
+    const trimmedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
     // Validate inputs
-    if (!name || !email || !password || !confirmPassword) {
-      console.log('Validation failed: missing fields');
+    if (!trimmedName || !normalizedEmail || !password || !confirmPassword) {
       setRegistrationError('Please fill in all fields');
       return;
     }
@@ -80,57 +80,54 @@ export default function RegisterScreen() {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       setRegistrationError('Please enter a valid email address');
       return;
     }
 
-    // Clear any previous errors
-    setRegistrationError(null);
-    setIsRegistering(true);
-
     try {
-      console.log('Registration attempt for:', email);
-
-      // Use AuthContext register function for proper state management
-      const success = await register(name, email, password);
-      console.log('Registration result:', success);
-
+      console.log('Registration attempt for:', normalizedEmail);
+      const success = await register(trimmedName, normalizedEmail, password);
+      
       if (success) {
-        console.log('Registration successful for:', email);
-
-        // Show success message immediately
-        alert('Registration successful! Welcome to Onolo Gas.');
-
-        // Navigate to home immediately
-        console.log('Registration: Navigating to home');
-        router.replace('/home');
-
-        // Keep spinner visible for 10 seconds to prevent showing landing page flash
-        setTimeout(() => {
-          setIsRegistering(false);
-        }, 10000);
-
-        // Don't turn off spinner in finally block for successful registration
-        return;
-
-      } else {
-        console.error('Registration failed');
-        setRegistrationError('Registration failed. Please try again.');
+        // Show success toast - navigation is handled by AuthGuard
+        Toast.show({
+          type: 'success',
+          text1: 'Welcome!',
+          text2: 'Your account has been created.',
+        });
+        
+        // If we have a redirectTo, handle it here since we're already on the auth flow
+        if (redirectTo) {
+          router.replace(redirectTo as any);
+        }
       }
-
     } catch (error: any) {
       console.error('Registration error:', error);
-      setRegistrationError('An unexpected error occurred. Please try again.');
-    } finally {
-      // Only turn off spinner if registration failed
-      if (!isRegistering) return;
-      setIsRegistering(false);
+      setRegistrationError(error?.message || 'Registration failed. Please try again.');
     }
   };
 
+  // Redirect if user is already logged in
+  React.useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      if (redirectTo) {
+        router.replace(redirectTo as any);
+      } else {
+        router.replace('/(tabs)');
+      }
+    }
+  }, [isAuthenticated, isLoading, router, redirectTo]);
+
   const handleLogin = () => {
-    router.push('/auth/login');
+    if (redirectTo) {
+      router.push({
+        pathname: '/auth/login',
+        params: { redirectTo: redirectTo as string }
+      } as any);
+    } else {
+      router.push('/auth/login');
+    }
   };
 
   const handleBack = () => {
@@ -172,6 +169,9 @@ export default function RegisterScreen() {
                 placeholder="Enter your full name"
                 leftIcon="person-outline"
                 returnKeyType="next"
+                autoCapitalize="words"
+                textContentType="name"
+                editable={!isLoading}
               />
 
               <CustomTextInput
@@ -180,9 +180,12 @@ export default function RegisterScreen() {
                 placeholder="Enter your email"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
                 leftIcon="mail-outline"
                 returnKeyType="next"
                 error={emailError}
+                editable={!isLoading}
               />
 
               <CustomTextInput
@@ -194,6 +197,9 @@ export default function RegisterScreen() {
                 rightIcon={showPassword ? 'eye-off-outline' : 'eye-outline'}
                 onRightIconPress={() => setShowPassword(!showPassword)}
                 returnKeyType="next"
+                autoCapitalize="none"
+                textContentType="newPassword"
+                editable={!isLoading}
               />
 
               <CustomTextInput
@@ -206,6 +212,9 @@ export default function RegisterScreen() {
                 onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 returnKeyType="done"
                 onSubmitEditing={handleRegister}
+                autoCapitalize="none"
+                textContentType="newPassword"
+                editable={!isLoading}
               />
 
               {/* Registration Error Banner */}
@@ -226,15 +235,15 @@ export default function RegisterScreen() {
               <Button
                 title="Register"
                 onPress={handleRegister}
-                loading={isRegistering}
+                loading={isLoading}
                 style={styles.registerButton}
-                disabled={isRegistering}
+                disabled={isLoading || !!emailError}
               />
 
               <View style={styles.loginContainer}>
                 <Text style={styles.loginText}>Already have an account? </Text>
-                <TouchableOpacity onPress={handleLogin} disabled={isRegistering}>
-                  <Text style={[styles.loginLink, isRegistering && styles.disabledLink]}>Login</Text>
+                <TouchableOpacity onPress={handleLogin} disabled={isLoading}>
+                  <Text style={[styles.loginLink, isLoading && styles.disabledLink]}>Login</Text>
                 </TouchableOpacity>
               </View>
             </View>

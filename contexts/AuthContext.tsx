@@ -8,15 +8,12 @@ interface AuthContextType {
   isLoading: boolean;
   isLoggingOut: boolean;
   isAuthenticated: boolean;
-  isGuest: boolean;
 
-  // Auth methods - simplified
+  // Auth methods - all return Promise<boolean> to indicate success/failure
   login: (email: string, password: string) => Promise<boolean>;
-  loginAsGuest: () => Promise<void>;
-  createNewGuestSession: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
-  logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  logout: () => Promise<boolean>;
+  refreshUser: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,262 +29,208 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authSubscriptionRef = useRef<any>(null);
 
   // Computed properties
-  const isAuthenticated = !!user && !user.isGuest;
-  const isGuest = !!user && user.isGuest;
+  const isAuthenticated = !!user;
 
   // Cleanup on unmount
+  // Single source of truth for auth state
   useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      if (authSubscriptionRef.current) {
-        authSubscriptionRef.current.unsubscribe();
-        authSubscriptionRef.current = null;
-      }
-    };
-  }, []);
+    isMountedRef.current = true;
+    let unsubscribe: (() => void) | undefined;
 
-  // Minimal auth initialization - let Supabase do the heavy lifting
-  useEffect(() => {
-    const initializeAuth = async () => {
+    (async () => {
       try {
         console.log('AuthContext: Initializing minimal auth state...');
 
-        // Get initial session - simple and direct
-        const currentUser = await authService.getCurrentUser();
-        if (currentUser && isMountedRef.current) {
-          setUser(currentUser);
-        }
-
-        // Minimal auth state listener - only respond to successful auth events
+        // Subscribe to auth changes first to catch initial session
         const { data: { subscription } } = authService.onAuthStateChange(async (event, session) => {
           if (!isMountedRef.current) return;
 
-          console.log('AuthContext: Auth state change:', event, 'Session exists:', !!session?.user);
-
-          // Handle sign-in events to update user state immediately
-          if (event === 'SIGNED_IN' && session?.user) {
-            console.log('AuthContext: User signed in, updating user state');
-            const currentUser = await authService.getCurrentUser();
-            if (currentUser && isMountedRef.current) {
-              setUser(currentUser);
-            }
+          if (__DEV__) {
+            console.log('AuthContext: Auth state change:', event, 'Session exists:', !!session?.user);
           }
 
-          // Only respond to successful authentication events, ignore failed login attempts
-          if (event === 'SIGNED_IN' && session?.user) {
-            console.log('AuthContext: Processing successful sign in');
-            const user = await authService.getCurrentUser();
-            if (user && isMountedRef.current) {
-              setUser(user);
+          try {
+            switch (event) {
+              case 'INITIAL_SESSION': {
+                if (session?.user) {
+                  const fresh = await authService.getCurrentUser();
+                  if (isMountedRef.current) {
+                    setUser(fresh ?? null);
+                  }
+                } else {
+                  setUser(null);
+                }
+                break;
+              }
+              case 'SIGNED_IN':
+              case 'TOKEN_REFRESHED':
+              case 'USER_UPDATED': {
+                const fresh = await authService.getCurrentUser();
+                if (isMountedRef.current) {
+                  setUser(fresh ?? null);
+                  if (__DEV__) {
+                    console.log('AuthContext: User updated from auth state change:', fresh?.email);
+                  }
+                }
+                break;
+              }
+              case 'SIGNED_OUT': {
+                if (isMountedRef.current) {
+                  setUser(null);
+                  setIsLoggingOut(false);
+                  if (__DEV__) {
+                    console.log('AuthContext: User signed out from auth state change');
+                  }
+                }
+                break;
+              }
+              default:
+                // ignore other events
+                break;
             }
-          } else if (event === 'SIGNED_OUT') {
-            console.log('AuthContext: Processing sign out');
-            // Only clear user on explicit sign out, not on failed login attempts
-            setUser(null);
-          } else {
-            console.log('AuthContext: Ignoring auth event:', event);
-          }
-          // Ignore other events like 'TOKEN_REFRESHED', failed logins, etc.
-
-          // Always set loading to false after any auth event
-          if (isMountedRef.current) {
-            setIsLoading(false);
+          } catch (error) {
+            if (__DEV__) {
+              console.error('AuthContext: Error handling auth state change:', error);
+            }
+          } finally {
+            if (isMountedRef.current) {
+              setIsLoading(false);
+            }
           }
         });
 
         authSubscriptionRef.current = subscription;
+        // Simplified unsubscribe with optional chaining
+        unsubscribe = () => subscription?.unsubscribe?.();
 
-        // Set loading to false after initial setup
-        if (isMountedRef.current) {
-          setIsLoading(false);
-        }
+        // Initial user fetch is now handled by the INITIAL_SESSION event
       } catch (error) {
         console.error('AuthContext: Error initializing auth:', error);
-        if (isMountedRef.current) {
-          setIsLoading(false);
-        }
+        if (isMountedRef.current) setIsLoading(false);
       }
-    };
+    })();
 
-    initializeAuth();
-  }, []);
+    // Cleanup must be returned from the effect, not from inside try
+    return () => {
+      isMountedRef.current = false;
+      unsubscribe?.();
+      authSubscriptionRef.current = null;
+    };
+  }, []); // Empty dependency array as authService is a module import
 
   // Auth methods
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       const result = await authService.login({ email, password });
-
-      if (result.success && result.user) {
-        setUser(result.user);
-        return true;
+      if (result.success) {
+        return true; // listener will update user and flip loading off
       }
-
-      // If login failed, throw an error - let the component handle it
-      throw new Error(result.error || 'Login failed');
-    } catch (error: any) {
+      // Convert to boolean to match other methods' return type
+      return false;
+    } catch (error) {
       console.error('AuthContext: Login error:', error);
-      // Just re-throw - no complex state management
-      throw error;
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-      }
+      if (isMountedRef.current) setIsLoading(false);
+      return false;
     }
   }, []);
-
-  const loginAsGuest = useCallback(async (): Promise<void> => {
-    try {
-      const result = await authService.loginAsGuest();
-
-      if (result.success && result.user) {
-        setUser(result.user);
-      }
-    } catch (error) {
-      console.error('AuthContext: Guest login error:', error);
-    }
-  }, []);
-
-  const createNewGuestSession = useCallback(async (): Promise<void> => {
-    try {
-      const result = await authService.createNewGuestSession();
-
-      if (result.success && result.user) {
-        setUser(result.user);
-      }
-    } catch (error) {
-      console.error('AuthContext: Create new guest session error:', error);
-    }
-  }, []);
-
 
 
   const register = useCallback(async (name: string, email: string, password: string): Promise<boolean> => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       console.log('AuthContext: Starting registration process for:', email);
-
       const result = await authService.register({ name, email, password });
-
-      if (result.success && result.user) {
-        console.log('AuthContext: Registration successful, updating user state');
-        setUser(result.user);
-
-        // Brief wait for auth state to be processed
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        // Verify user state is set
-        const currentUser = await authService.getCurrentUser();
-        if (currentUser && isMountedRef.current) {
-          console.log('AuthContext: User state confirmed after registration');
-          setUser(currentUser);
-        }
-
+      
+      if (result.success) {
+        console.log('AuthContext: Registration successful, waiting for auth state change');
+        // DO NOT set isLoading to false here - the auth state change listener will handle it
         return true;
       }
-
-      console.log('AuthContext: Registration failed');
+      
+      // If we get here, registration failed but didn't throw
+      console.error('AuthContext: Registration failed:', result.error);
+      if (isMountedRef.current) setIsLoading(false);
       return false;
     } catch (error) {
       console.error('AuthContext: Registration error:', error);
+      if (isMountedRef.current) setIsLoading(false);
       return false;
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-        console.log('AuthContext: Registration process completed');
-      }
     }
   }, []);
 
-  const logout = useCallback(async (): Promise<void> => {
-    try {
-      console.log('AuthContext: Starting logout process for user:', user?.isGuest ? 'guest' : 'registered');
+  const logout = useCallback(async (): Promise<boolean> => {
+    if (!authService) return false;
+    
+    if (__DEV__) {
+      console.log('AuthContext: Starting logout process');
+    }
 
-      // Set logout state to trigger smooth transition
-      setIsLoggingOut(true);
+    // Set logout state to trigger smooth transition
+    setIsLoggingOut(true);
+    setIsLoading(true);
 
-      // Create a timeout to prevent getting stuck in logout state
-      const timeoutId = setTimeout(() => {
-        console.warn('AuthContext: Logout timeout reached, forcing completion');
-        if (isMountedRef.current) {
-          setUser(null);
-          setIsLoggingOut(false);
-        }
-      }, 5000); // 5 second timeout
-
-      try {
-        if (user?.isGuest) {
-          await authService.logoutGuest(user.id);
-          console.log('AuthContext: Guest logout completed');
-        } else {
-          await authService.logout();
-          console.log('AuthContext: Registered user logout completed');
-        }
-
-        // Clear the timeout since logout completed successfully
-        clearTimeout(timeoutId);
-
-        // Shorter delay to prevent stuck state
-        const delay = user?.isGuest ? 100 : 200;
-        await new Promise(resolve => setTimeout(resolve, delay));
-
-        if (isMountedRef.current) {
-          setUser(null);
-          console.log('AuthContext: User state cleared');
-        }
-
-        // Shorter delay before clearing logout state
-        setTimeout(() => {
-          if (isMountedRef.current) {
-            setIsLoggingOut(false);
-            console.log('AuthContext: Logout transition completed');
-          }
-        }, 200);
-
-      } catch (logoutError) {
-        console.error('AuthContext: Logout service error:', logoutError);
-        clearTimeout(timeoutId);
-
-        // Force clear user state even if logout service fails
-        if (isMountedRef.current) {
-          setUser(null);
-          setIsLoggingOut(false);
-        }
-      }
-
-    } catch (error) {
-      console.error('AuthContext: Logout error:', error);
-      // Always clear logout state on any error
+    // Create a safety timeout in case the SIGNED_OUT event doesn't fire
+    const timeoutId = setTimeout(() => {
       if (isMountedRef.current) {
+        if (__DEV__) {
+          console.warn('AuthContext: Logout timeout reached, forcing completion');
+        }
         setUser(null);
+        setIsLoading(false);
         setIsLoggingOut(false);
       }
+    }, 5000);
+
+    try {
+      await authService.logout();
+      
+      // Clear the timeout on successful logout
+      clearTimeout(timeoutId);
+      
+      // Don't clear user state here - let the auth state change listener handle it
+      return true;
+      
+    } catch (error) {
+      if (__DEV__) {
+        console.error('AuthContext: Logout service error:', error);
+      }
+      // Clear the timeout on error
+      clearTimeout(timeoutId);
+      
+      // Still need to clear the loading state on error
+      if (isMountedRef.current) {
+        setIsLoading(false);
+        setIsLoggingOut(false);
+      }
+      return false;
     }
   }, [user]);
 
-  const refreshUser = useCallback(async (): Promise<void> => {
+  const refreshUser = useCallback(async (): Promise<boolean> => {
     try {
       const currentUser = await authService.getCurrentUser();
-      if (currentUser && isMountedRef.current) {
+      if (isMountedRef.current) {
         setUser(currentUser);
+        return true;
       }
+      return false;
     } catch (error) {
-      console.error('AuthContext: Refresh user error:', error);
+      if (__DEV__) {
+        console.error('AuthContext: Error refreshing user:', error);
+      }
+      return false;
     }
   }, []);
 
   // Memoize methods separately to prevent unnecessary re-renders
   const methods = useMemo(() => ({
     login,
-    loginAsGuest,
-    createNewGuestSession,
     register,
     logout,
     refreshUser,
   }), [
     login,
-    loginAsGuest,
-    createNewGuestSession,
     register,
     logout,
     refreshUser,
@@ -299,14 +242,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     isLoggingOut,
     isAuthenticated,
-    isGuest,
     ...methods,
   }), [
     user,
     isLoading,
     isLoggingOut,
     isAuthenticated,
-    isGuest,
     methods,
   ]);
 

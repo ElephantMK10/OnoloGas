@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter, usePathname, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import CustomTextInput from '../../components/CustomTextInput';
 import Button from '../../components/Button';
@@ -22,15 +22,20 @@ import { supabase } from '../../lib/supabase';
 export default function LoginScreen() {
   const router = useRouter();
   const pathname = usePathname();
-  const { login, loginAsGuest, isLoading, logout, user } = useAuth();
+  const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
+  const { login, isLoading, user } = useAuth();
 
-  // Redirect to home if user is already logged in
+  // Redirect if user is already logged in
   useEffect(() => {
     if (user && !isLoading) {
-      console.log('User already signed in, redirecting to home');
-      router.replace('/(tabs)');
+      console.log('User already signed in, redirecting...');
+      if (redirectTo) {
+        router.replace(redirectTo as any);
+      } else {
+        router.replace('/(tabs)');
+      }
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router, redirectTo]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -95,7 +100,7 @@ export default function LoginScreen() {
     try {
       console.log('Login attempt for:', email);
 
-      // Call Supabase directly instead of through AuthContext to avoid navigation
+      // Sign in with email and password using the auth service
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
@@ -117,9 +122,13 @@ export default function LoginScreen() {
         return;
       }
 
-      console.log('Login successful, navigating to home');
-      // If successful, manually navigate to home
-      router.replace('/(tabs)');
+      console.log('Login successful, navigating...');
+      // If successful, navigate to the intended destination or home
+      if (redirectTo) {
+        router.replace(redirectTo as any);
+      } else {
+        router.replace('/(tabs)');
+      }
 
     } catch (error: any) {
       console.error('Login error:', error);
@@ -129,20 +138,6 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGuestLogin = async () => {
-    try {
-      // Navigate to home page like "Browse Products" button - no guest session creation
-      router.replace('/home');
-    } catch (error: any) {
-      console.error('Guest navigation error:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Navigation Failed',
-        text2: error.message || 'Failed to navigate to home',
-        position: 'bottom',
-      });
-    }
-  };
 
   const handleRegister = () => {
     router.push('/auth/register');
@@ -245,18 +240,6 @@ export default function LoginScreen() {
                 style={styles.loginButton}
               />
 
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>OR</Text>
-                <View style={styles.dividerLine} />
-              </View>
-
-              <Button
-                title="Continue as Guest"
-                onPress={handleGuestLogin}
-                variant="outline"
-                style={styles.guestButton}
-              />
 
               <View style={styles.registerContainer}>
                 <Text style={styles.registerText}>Don't have an account? </Text>
