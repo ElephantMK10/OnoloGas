@@ -69,8 +69,9 @@ export const getPaymentReturnUrls = (orderId: string) => {
   const baseUrl = getApiBaseUrl();
   return {
     payfast: {
-      returnUrl: `${baseUrl}/payfast-success?orderId=${orderId}`,
-      cancelUrl: `${baseUrl}/payfast-cancel?orderId=${orderId}`,
+      // Use redirect pages that will deep link back to the app
+      returnUrl: `${baseUrl}/payfast-redirect-success.html?orderId=${orderId}`,
+      cancelUrl: `${baseUrl}/payfast-redirect-cancel.html?orderId=${orderId}`,
       notifyUrl: `${baseUrl}/api/payfast-notify`,
     },
   };

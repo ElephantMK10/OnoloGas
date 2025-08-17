@@ -58,25 +58,7 @@ export default {
       display: "standalone",
       orientation: "portrait"
     },
-    plugins: [
-      [
-        "expo-router",
-        {
-          origin: "https://orders-onologroup.online"
-        }
-      ],
-      [
-        "expo-splash-screen",
-        {
-          image: "./assets/images/splash-icon.png",
-          imageWidth: 200,
-          resizeMode: "contain",
-          backgroundColor: "#000000"
-        }
-      ],
-      "expo-font",
-      "expo-web-browser"
-    ],
+    plugins: ["expo-router", "expo-splash-screen", "expo-font", "expo-web-browser"],
     experiments: {
       typedRoutes: true
     },

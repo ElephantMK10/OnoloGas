@@ -290,12 +290,17 @@ export const supabase = createSafeClient();
 // Add a method to check if Supabase is properly configured
 export const isSupabaseConfigured = () => configCheck.valid;
 
-// Enhanced connection test function with better error handling
+// Enhanced connection test function with better error handling and timeout
 export const testSupabaseConnection = async () => {
   try {
     console.log('Testing Supabase connection to:', supabaseUrl);
 
-    return await retryRequest(async () => {
+    // Add a timeout wrapper to prevent hanging
+    const timeoutPromise = new Promise<boolean>((_, reject) => {
+      setTimeout(() => reject(new Error('Connection test timeout')), 10000); // 10 second timeout
+    });
+
+    const testPromise = retryRequest(async () => {
       // First, test basic connectivity with a simple query that doesn't modify data
       const { data, error } = await supabase.from('profiles').select('count', { count: 'exact' }).limit(1);
 
@@ -311,10 +316,16 @@ export const testSupabaseConnection = async () => {
 
       console.log('✅ Supabase connection test successful');
       return true;
-    });
+    }, 2, 1000); // Reduce retries to 2 with 1 second delay
+
+    return await Promise.race([testPromise, timeoutPromise]);
   } catch (error: any) {
-    const errorDetails = handleNetworkError(error, 'testSupabaseConnection');
-    console.error('Connection test failed:', errorDetails.message);
+    if (error.message === 'Connection test timeout') {
+      console.error('Connection test timed out after 10 seconds');
+    } else {
+      const errorDetails = handleNetworkError(error, 'testSupabaseConnection');
+      console.error('Connection test failed:', errorDetails.message);
+    }
     return false;
   }
 };

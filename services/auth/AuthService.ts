@@ -7,6 +7,7 @@ import type {
   RegisterRequest 
 } from '../interfaces/IAuthService';
 import type { SupabaseProfile } from './types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export class AuthService implements IAuthService {
   private static instance: AuthService;
@@ -182,58 +183,28 @@ export class AuthService implements IAuthService {
     try {
       console.log('AuthService: Logging out user');
 
-      // Add timeout to prevent hanging
-      const logoutPromise = supabase.auth.signOut();
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Logout timeout')), 3000)
-      );
+      // 1) Clear local persisted session first so UI can move on immediately
+      try { await supabase.auth.signOut({ scope: 'local' } as any); } catch {}
 
-      await Promise.race([logoutPromise, timeoutPromise]);
-      console.log('AuthService: Logout successful');
-    } catch (error: any) {
-      console.error('AuthService: Logout error:', error);
-      // Don't throw error for logout, just log it
-      // Even if logout fails, we'll clear local state
-    }
-  }
+      // 2) Fire-and-forget global sign out; do not block UX
+      supabase.auth.signOut({ scope: 'global' } as any).catch(() => {});
 
-  /**
-   * Clear guest session and associated data
-   */
-  async logoutGuest(guestUserId?: string): Promise<void> {
-    try {
-      console.log('AuthService: Clearing guest session for:', guestUserId);
-
-      if (guestUserId) {
-        // Add timeout for AsyncStorage operations
-        const clearGuestData = async () => {
-          // Import AsyncStorage dynamically to avoid issues
-          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-
-          // Clear guest-specific orders
-          const ordersKey = `@onolo_orders_${guestUserId}`;
-          await AsyncStorage.removeItem(ordersKey);
-          console.log('AuthService: Cleared guest orders for:', guestUserId);
-
-          // Clear any other guest-specific data if needed
-          // Add more cleanup here as needed
-        };
-
-        // Add timeout to prevent hanging on AsyncStorage operations
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Guest logout timeout')), 2000)
-        );
-
-        await Promise.race([clearGuestData(), timeoutPromise]);
+      // 3) Failsafe: purge any leftover Supabase auth-token keys
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+        const authKeys = keys.filter(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+        if (authKeys.length) {
+          console.log('[Auth] Purging leftover supabase auth keys:', authKeys);
+          await AsyncStorage.multiRemove(authKeys);
+        }
+      } catch (e) {
+        console.warn('[Auth] purge tokens error', e);
       }
-
-      console.log('AuthService: Guest session cleared');
-    } catch (error: any) {
-      console.error('AuthService: Guest logout error:', error);
-      // Don't throw error for logout, just log it
-      // Even if cleanup fails, we'll clear the session
+    } catch (error) {
+      console.warn('AuthService: logout exception', error);
     }
   }
+
 
   /**
    * Send magic link for passwordless login
@@ -274,30 +245,8 @@ export class AuthService implements IAuthService {
    * Create a guest session
    */
   async loginAsGuest(): Promise<AuthResult> {
-    try {
-      console.log('AuthService: Creating guest session');
-
-      const guestUser: User = {
-        id: 'guest-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-        name: 'Guest User',
-        email: '',
-        phone: '',
-        address: '',
-        isGuest: true,
-      };
-
-      console.log('AuthService: Created guest user with ID:', guestUser.id);
-      return {
-        success: true,
-        user: guestUser,
-      };
-    } catch (error: any) {
-      console.error('AuthService: Guest login error:', error);
-      return {
-        success: false,
-        error: error.message || 'Failed to create guest session',
-      };
-    }
+    console.warn('Guest auth is disabled');
+    return { success: false, error: 'Guest checkout is disabled' };
   }
 
   /**
@@ -332,8 +281,15 @@ export class AuthService implements IAuthService {
    * Create a new guest session (for switching guest sessions)
    */
   async createNewGuestSession(): Promise<AuthResult> {
-    console.log('AuthService: Creating new guest session');
-    return this.loginAsGuest();
+    console.warn('Guest auth is disabled');
+    return { success: false, error: 'Guest checkout is disabled' };
+  }
+
+  /**
+   * Get current session
+   */
+  async getSession() {
+    return supabase.auth.getSession();
   }
 
   /**
@@ -452,15 +408,7 @@ export class AuthService implements IAuthService {
 
       if (!profile) {
         console.error('AuthService: Profile not found for user:', userId);
-        // Return basic user from auth data
-        return {
-          id: authUser.id,
-          name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
-          email: authUser.email || '',
-          phone: '',
-          address: '',
-          isGuest: false,
-        };
+        return null;
       }
 
       const user: User = {
@@ -480,25 +428,6 @@ export class AuthService implements IAuthService {
     }
   }
   
-  /**
-   * Create a fallback profile when profile loading fails
-   * @private
-   */
-  private createFallbackProfile(userId: string): User {
-    console.log('AuthService: Creating fallback profile for:', userId);
-    
-    // Create a minimal user object to prevent app crashes
-    return {
-      id: userId,
-      name: 'User',
-      email: '',
-      phone: '',
-      address: '',
-      isGuest: false,
-      // Flag indicating this is a fallback profile that should be refreshed
-      _fallback: true,
-    };
-  }
 
   /**
    * Set up auth state change listener

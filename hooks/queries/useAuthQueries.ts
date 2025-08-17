@@ -70,23 +70,6 @@ export const useRegister = () => {
   });
 };
 
-// Guest login mutation
-export const useGuestLogin = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: () => authService.loginAsGuest(),
-    onSuccess: (result) => {
-      if (result.success && result.user) {
-        queryClient.setQueryData(queryKeys.auth.user, result.user);
-        queryClient.setQueryData(queryKeys.auth.session, true);
-      }
-    },
-    onError: (error) => {
-      console.error('Guest login mutation error:', error);
-    },
-  });
-};
 
 // Logout mutation
 export const useLogout = () => {
@@ -141,7 +124,6 @@ export const useAuth = () => {
   const authStatusQuery = useAuthStatus();
   const loginMutation = useLogin();
   const registerMutation = useRegister();
-  const guestLoginMutation = useGuestLogin();
   const logoutMutation = useLogout();
   const refreshTokenMutation = useRefreshToken();
   
@@ -165,7 +147,6 @@ export const useAuth = () => {
     // Actions
     login: loginMutation.mutateAsync,
     register: registerMutation.mutateAsync,
-    loginAsGuest: guestLoginMutation.mutateAsync,
     logout: logoutMutation.mutateAsync,
     refreshToken: refreshTokenMutation.mutateAsync,
     

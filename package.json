@@ -8,7 +8,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "build": "expo export --platform web && cp -r public/* dist/",
+    "build": "expo export --platform web && cp -r public/* dist/ 2>/dev/null || : && cp web/payfast-redirect-*.html dist/ 2>/dev/null || :",
     "lint": "expo lint",
     "format": "prettier --write .",
     "test": "jest",

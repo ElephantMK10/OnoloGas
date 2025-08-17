@@ -29,30 +29,42 @@ const ROUTES = {
   AUTH_REGISTER: '/auth/register' as Href,
 } as const;
 
-// Auth guard with typed paths and improved loading state
+// Simplified Auth guard - only allow authenticated users into app routes
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useAuth();
+  console.log('[AuthGuard] render', { isLoading, isAuthenticated });
   const segments = useSegments() as string[];
   const router = useRouter();
   const navState = useRootNavigationState();
   const navReady = !!navState?.key;
 
-  const PUBLIC = new Set(['', 'welcome', 'auth']);   // public routes
+  const PUBLIC = new Set(['welcome', 'auth', 'index']);   // public routes (including index)
   const PROTECTED = new Set(['(tabs)', 'home', 'checkout', 'profile', 'order']); // protected routes
 
   useEffect(() => {
     if (!navReady || isLoading) return;
 
     const current = segments[0] || '';
+    
+    // Special handling for empty route - should go to welcome if not authenticated
+    if (current === '' && !isAuthenticated) {
+      router.replace(ROUTES.WELCOME);
+      return;
+    }
+    
     const isPublic = PUBLIC.has(current);
     const isProtected = PROTECTED.has(current) || (!isPublic && current !== '');
 
+    // If authenticated and on a public route, redirect to main app
     if (isAuthenticated) {
-      if (isPublic) {
+      if (isPublic || current === '') {
         router.replace(ROUTES.TABS);
       }
-    } else if (isProtected || current === '') {
-      // Redirect to login with redirectTo param
+      return;
+    }
+
+    // If not authenticated and trying to access protected route, redirect to login
+    if (isProtected) {
       router.replace({
         pathname: ROUTES.AUTH_LOGIN,
         params: { redirectTo: `/${segments.join('/')}` },
@@ -130,7 +142,7 @@ export default function RootLayout() {
                 gestureEnabled: true,
                 gestureDirection: 'horizontal',
               }}
-              initialRouteName="index"
+              initialRouteName="welcome"
             >
               <Stack.Screen
                 name="index"

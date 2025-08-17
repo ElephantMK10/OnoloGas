@@ -422,20 +422,14 @@ export default function ProfileScreen() {
 
   const handleNewGuestSession = async () => {
     try {
-      await createNewGuestSession();
-      // Show success message
-      Toast.show({
-        type: 'success',
-        text1: 'New Guest Session',
-        text2: 'Started fresh guest session',
-        position: 'top',
-      });
+      await logout();
+      router.replace('/welcome');
     } catch (error) {
       console.error('Profile: handleNewGuestSession error:', error);
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Failed to create new guest session',
+        text2: 'Failed to logout',
         position: 'top',
       });
     }

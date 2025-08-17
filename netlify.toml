@@ -16,7 +16,20 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
-# SPA redirects for React Router
+# PayFast redirect pages (must be before catch-all)
+[[redirects]]
+  from = "/payfast-redirect-success.html"
+  to = "/payfast-redirect-success.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/payfast-redirect-cancel.html"
+  to = "/payfast-redirect-cancel.html"
+  status = 200
+  force = true
+
+# SPA redirects for React Router (catch-all, must be last)
 [[redirects]]
   from = "/*"
   to = "/index.html"
