@@ -181,7 +181,7 @@ export default function AddressAutocomplete({
     setShowSuggestions(false);
     setSuggestions([]);
     setIsInteractingWithSuggestions(false);
-    onAddressSelect(selectedAddress);
+    onAddressSelect(feature); // Pass the full feature object
 
     // Clear any pending blur timeout
     if (blurTimeoutRef.current) {
@@ -339,11 +339,11 @@ export default function AddressAutocomplete({
           name="location-outline"
           size={20}
           color={COLORS.text.gray}
-          style={styles.inputIcon}
+          style={styles.inputIcon as any}
         />
         <WebOptimizedInput
           ref={inputRef}
-          style={[styles.input, Platform.OS === 'web' && styles.webInput]}
+          style={[styles.input, Platform.OS === 'web' && styles.webInput] as any}
           value={query}
           onChangeText={handleChangeText}
           placeholder={placeholder}
@@ -369,7 +369,7 @@ export default function AddressAutocomplete({
         />
         {query.length > 0 && (
           <TouchableOpacity onPress={clearInput} style={styles.clearButton}>
-            <CustomIcon name="close-circle" size={20} color={COLORS.text.gray} />
+            <CustomIcon name="close-circle" size={20} color={COLORS.text.gray} style={undefined} />
           </TouchableOpacity>
         )}
       </View>

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authService } from '../../services/auth/AuthService';
 import { queryKeys, invalidateQueries } from '../../utils/queryClient';
+import { updateProfileRow } from '@/services/profileService';
 import type { LoginRequest, RegisterRequest, User } from '../../services/interfaces/IAuthService';
 
 // Current user query
@@ -154,4 +155,49 @@ export const useAuth = () => {
     refetchUser: userQuery.refetch,
     refetchAuthStatus: authStatusQuery.refetch,
   };
+};
+// Profile update mutation
+export const useUpdateProfile = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  return useMutation({
+    mutationFn: async (profileData: {
+      first_name: string;
+      last_name: string;
+      phone: string;
+      address: string;
+    }) => {
+      if (!user?.id) {
+        throw new Error('Cannot update profile: no authenticated user');
+      }
+      const { data, error } = await updateProfileRow({
+        ...profileData,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) throw new Error(error.message || 'Failed to update profile');
+      if (!data) throw new Error('No profile row updated');
+      return data;
+    },
+    onSuccess: (data) => {
+      // Update the user data in cache
+      queryClient.setQueryData(queryKeys.auth.user, (oldUser: any) => {
+        if (!oldUser) return oldUser;
+        return {
+          ...oldUser,
+          name: `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim(),
+          phone: data.phone ?? oldUser.phone,
+          address: data.address ?? oldUser.address,
+        };
+      });
+      
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.user });
+    },
+    onError: (error) => {
+      console.warn('[Profile] Update failed:', error?.message || error);
+      throw error;
+    },
+  });
 };

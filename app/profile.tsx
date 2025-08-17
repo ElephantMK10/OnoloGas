@@ -36,6 +36,8 @@ import { ProfileUpdateSchema, validateData, getValidationErrors } from '../valid
 import { supabase } from '../lib/supabase';
 import ProfileSettingsScreen from '../components/ProfileSettingsScreen';
 import { Order, OrderItem } from '../services/interfaces/IOrderService';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { updateProfileRow } from '../services/profileService';
 
 type TabType = 'orders' | 'profile' | 'settings';
 type SettingsScreenType = string; // Allow any string to match ProfileSettingsScreen's expectations
@@ -69,11 +71,9 @@ export default function ProfileScreen() {
     user,
     logout,
     isAuthenticated,
-    isGuest,
     refreshUser,
-    createNewGuestSession,
   } = useAuth();
-  const { 
+  const {
     orders,
     cancelOrder,
     getOrderStats,
@@ -94,7 +94,12 @@ export default function ProfileScreen() {
   
   const [activeTab, setActiveTab] = useState<TabType>('orders');
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false)
+  const qc = useQueryClient()
+
+  const updateMutation = useMutation({
+    mutationFn: updateProfileRow,
+  })
   const [showProgress, setShowProgress] = useState(false);
   const [updateProgress, setUpdateProgress] = useState<ProfileUpdateProgress[]>([]);
   const [formData, setFormData] = useState<FormData>({
@@ -254,128 +259,6 @@ export default function ProfileScreen() {
     return true;
   }, [formData]);
 
-  // Simplified and more robust handleSaveProfile
-  const handleSaveProfile = useCallback(async () => {
-    console.log('handleSaveProfile: Starting profile update');
-
-    // Prevent multiple simultaneous save attempts
-    if (isSaving) {
-      console.log('handleSaveProfile: Save already in progress, ignoring duplicate request');
-      return;
-    }
-
-    setIsSaving(true);
-    setShowProgress(true);
-    setUpdateProgress([]);
-
-    try {
-      dismissKeyboard();
-
-      // Validate form first
-      console.log('handleSaveProfile: Starting form validation...');
-      if (!validateForm()) {
-        console.log('handleSaveProfile: Form validation failed.');
-        return;
-      }
-      console.log('handleSaveProfile: Form validation passed.');
-
-      // Check if component is still mounted
-      if (!isMountedRef.current) {
-        console.log('handleSaveProfile: Component unmounted, aborting save.');
-        return;
-      }
-
-      // Update progress
-      setUpdateProgress([
-        { step: 'validation', status: 'completed', message: 'Form validation passed' },
-        { step: 'updating_profile', status: 'inProgress', message: 'Updating profile...' },
-      ]);
-
-      // Prepare cleaned data for submission
-      const cleanedData = {
-        first_name: formData.name.split(' ')[0]?.trim() || '',
-        last_name: formData.name.split(' ').slice(1).join(' ').trim() || '',
-        phone: formData.phone.trim(),
-        address: combineAddress(formData),
-      };
-
-      console.log('handleSaveProfile: Cleaned data prepared:', cleanedData);
-
-      // Update profile in Supabase
-      const { error } = await supabase
-        .from('profiles')
-        .update(cleanedData)
-        .eq('id', user?.id);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      // Update progress
-      setUpdateProgress([
-        { step: 'validation', status: 'completed', message: 'Form validation passed' },
-        { step: 'updating_profile', status: 'completed', message: 'Profile updated successfully' },
-      ]);
-
-      // Refresh user data
-      await refreshUser();
-
-      // Check if component is still mounted before updating state
-      if (!isMountedRef.current) {
-        console.log('handleSaveProfile: Component unmounted after update, not updating UI.');
-        return;
-      }
-
-      console.log('handleSaveProfile: Profile updated successfully.');
-      setIsEditing(false);
-      setShowProgress(false);
-      
-      Toast.show({
-        type: 'success',
-        text1: 'Profile Updated',
-        text2: 'Your profile has been updated successfully.',
-        position: 'bottom',
-      });
-    } catch (error: any) {
-      console.error('handleSaveProfile: Error caught in outer catch block:', error.message);
-
-      if (isMountedRef.current) {
-        setUpdateProgress([
-          { step: 'validation', status: 'completed', message: 'Form validation passed' },
-          { step: 'updating_profile', status: 'error', error: error.message },
-        ]);
-
-        setShowProgress(false);
-
-        let errorMessage = 'An unexpected error occurred. Please try again.';
-
-        if (error.message?.includes('timeout')) {
-          errorMessage = 'Request timed out. Please check your connection and try again.';
-        } else if (error.message?.includes('network')) {
-          errorMessage = 'Network error. Please check your connection and try again.';
-        }
-
-        Toast.show({
-          type: 'error',
-          text1: 'Update Failed',
-          text2: errorMessage,
-          position: 'bottom',
-          visibilityTime: 6000,
-        });
-      }
-    } finally {
-      console.log('handleSaveProfile: Finally block entered. Setting isSaving to false.');
-      // Always reset loading state if component is still mounted
-      if (isMountedRef.current) {
-        console.log('handleSaveProfile: Component still mounted, resetting isSaving to false.');
-        setIsSaving(false);
-      } else {
-        console.log('handleSaveProfile: Component unmounted in finally block, not updating state.');
-      }
-      console.log('handleSaveProfile: End of finally block.');
-    }
-  }, [formData, validateForm, combineAddress, dismissKeyboard, isSaving, user, refreshUser]);
-
   const handleCancelEdit = useCallback(() => {
     // Prevent canceling while saving
     if (isSaving) {
@@ -405,6 +288,38 @@ export default function ProfileScreen() {
       });
     }
   }, [user, parseAddress, dismissKeyboard, isSaving]);
+
+  const handleSaveProfile = useCallback(async () => {
+    if (!user?.id) return
+    dismissKeyboard()
+    if (!validateForm()) return
+    if (!isMountedRef.current) return
+
+    const cleanedData = {
+      first_name: formData.name.split(' ')[0]?.trim() || '',
+      last_name: formData.name.split(' ').slice(1).join(' ').trim() || '',
+      phone: formData.phone.trim(),
+      address: combineAddress(formData),
+    }
+
+    console.log('handleSaveProfile:start', cleanedData)
+    setIsSaving(true)
+
+    try {
+      const data = await updateMutation.mutateAsync({ id: user.id, ...cleanedData })
+      console.log('handleSaveProfile:updated', data)
+      await qc.invalidateQueries({ queryKey: ['profile', user.id] })
+      await refreshUser()
+      Toast.show({ type: 'success', text1: 'Profile updated' })
+      setIsEditing(false)
+      setShowProgress(false)
+    } catch (err: any) {
+      console.log('handleSaveProfile:error', err)
+      Toast.show({ type: 'error', text1: err?.message || 'Failed to update profile' })
+    } finally {
+      setIsSaving(false)
+    }
+  }, [user?.id, formData, dismissKeyboard, validateForm, combineAddress, updateMutation, qc, refreshUser])
 
   const handleLogout = async () => {
     try {
@@ -507,14 +422,9 @@ export default function ProfileScreen() {
         <View>
           <View style={styles.orderNumberRow}>
             <Text style={styles.orderNumber}>Order #{item.id.slice(-6)}</Text>
-            {item.isGuestOrder && (
-              <View style={styles.guestBadge}>
-                <Text style={styles.guestBadgeText}>Guest</Text>
-              </View>
-            )}
           </View>
           <Text style={styles.orderDate}>{formatDate(item.date)}</Text>
-        </View>
+          </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
             {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
@@ -683,23 +593,46 @@ export default function ProfileScreen() {
                       <AddressAutocomplete
                         label="Delivery Address *"
                         value={formData.streetAddress}
-                        onAddressSelect={(feature) => {
-                          if (typeof feature === 'string') {
-                            setFormData((prev) => ({ ...prev, streetAddress: feature }));
+                        onAddressSelect={(featureOrString) => {
+                          // Mapbox feature type definition
+                          type MapboxFeature = {
+                            place_name?: string;
+                            text?: string;
+                            address?: string;
+                            context?: Array<{ id: string; text: string }>;
+                            properties?: Record<string, any>;
+                          };
+
+                          // Helper function to get context by type
+                          const getCtx = (f: MapboxFeature, type: string) =>
+                            f.context?.find(c => c.id.startsWith(type + '.'))?.text || '';
+
+                          // Function to fill form data from Mapbox feature
+                          const fillFromFeature = (f: MapboxFeature) => {
+                            const street = [f.address, f.text].filter(Boolean).join(' ') || f.place_name || '';
+                            const city = getCtx(f, 'place') || getCtx(f, 'locality') || getCtx(f, 'district') || '';
+                            const state = getCtx(f, 'region') || '';
+                            const postalCode = getCtx(f, 'postcode') || '';
+                            const country = getCtx(f, 'country') || 'South Africa';
+
+                            setFormData(prev => ({
+                              ...prev,
+                              streetAddress: street,
+                              city,
+                              state,
+                              postalCode,
+                              country,
+                            }));
+                          };
+
+                          if (typeof featureOrString === 'string') {
+                            // Fallback: just set the street address
+                            setFormData(prev => ({ ...prev, streetAddress: featureOrString }));
                             return;
                           }
-                          // Parse Mapbox feature context for structured address fields
-                          const context = feature.context || [];
-                          const getContext = (type: string) =>
-                            context.find((c: { id: string }) => c.id.startsWith(type + '.'))?.text || '';
-                          setFormData((prev) => ({
-                            ...prev,
-                            streetAddress: feature.place_name || '',
-                            city: getContext('place') || getContext('locality') || '',
-                            state: getContext('region') || '',
-                            postalCode: getContext('postcode') || '',
-                            country: getContext('country') || '',
-                          }));
+
+                          // Handle Mapbox feature
+                          fillFromFeature(featureOrString as MapboxFeature);
                         }}
                         placeholder="Start typing your address..."
                         style={{ zIndex: 10 }}
@@ -833,7 +766,6 @@ export default function ProfileScreen() {
             user={user}
             onSetUpTwoFactor={handleSetUpTwoFactor}
             onLogout={user ? handleLogout : undefined}
-            onNewGuestSession={isGuest ? handleNewGuestSession : undefined}
           />
         );
 
@@ -900,9 +832,6 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>
             {user?.name || 'Guest User'}
-            {isGuest && user?.id && (
-              <Text style={styles.guestId}> #{user.id.split('-').pop()?.substring(0, 6)}</Text>
-            )}
           </Text>
 
           {pendingOrdersCount > 0 && (
@@ -916,6 +845,11 @@ export default function ProfileScreen() {
           {!isAuthenticated && (
             <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
               <Text style={styles.loginButtonText}>Sign In</Text>
+            </TouchableOpacity>
+          )}
+          {isAuthenticated && user && (
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutButtonText}>Sign Out</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1042,6 +976,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   loginButtonText: {
+    color: COLORS.text.white,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  logoutButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    backgroundColor: COLORS.error,
+    borderRadius: 20,
+  },
+  logoutButtonText: {
     color: COLORS.text.white,
     fontSize: 14,
     fontWeight: 'bold',
