@@ -3,7 +3,10 @@
 <head>
     <title>Payment Cancelled</title>
     <script>
-        window.location.href = "onolo://payfast-cancel";
+        (function() {
+          var qs = window.location.search || '';
+          window.location.replace('onolo://payfast-cancel' + qs);
+        })();
     </script>
 </head>
 <body>

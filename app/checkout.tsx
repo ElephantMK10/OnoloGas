@@ -26,8 +26,11 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import CustomTextInput from '../components/CustomTextInput';
 import AddressAutocomplete from '../components/AddressAutocomplete';
+import AddressBookSheet from '../components/AddressBookSheet';
+import AddressChip from '../components/AddressChip';
+import { useAddresses, useDefaultAddress, useUpsertAddress, useSetDefaultAddress } from '../hooks/queries/useAddressQueries';
 import DeliveryScheduler from '../components/DeliveryScheduler';
-import GuestOrderInfo from '../components/GuestOrderInfo';
+
 
 import { sendOrderConfirmationEmail } from '../utils/email';
 import { initiatePayFastPayment } from '../utils/payfast';
@@ -61,6 +64,12 @@ export default function CheckoutScreen() {
     notes: '',
     email: '',
   });
+  const userId = user?.id || '';
+  const { data: addressList = [] } = useAddresses(userId);
+  const { data: defaultAddress } = useDefaultAddress(userId);
+  const upsertAddressMutation = useUpsertAddress(userId);
+  const setDefaultAddressMutation = useSetDefaultAddress(userId);
+  const [addressSheetOpen, setAddressSheetOpen] = useState(false);
 
   const getPaymentMethodDisplayName = (method: PaymentMethod) => {
     const names: Record<PaymentMethod, string> = {
@@ -107,7 +116,7 @@ export default function CheckoutScreen() {
         userId: user.id,
         userName: user.name,
         userEmail: user.email,
-        isGuest: user.isGuest,
+        isGuest: false,
         userIdStartsWithGuest: user.id.startsWith('guest-')
       });
       
@@ -124,13 +133,26 @@ export default function CheckoutScreen() {
         deliverySchedule,
         deliveryDate: selectedDate.toISOString().split('T')[0],
         preferredDeliveryWindow: selectedTimeSlot,
+        shippingAddressSnapshot: defaultAddress ? {
+          id: defaultAddress.id,
+          label: defaultAddress.label,
+          line1: defaultAddress.line1,
+          line2: defaultAddress.line2,
+          city: defaultAddress.city,
+          province: defaultAddress.province,
+          postal_code: defaultAddress.postalCode,
+          country: defaultAddress.country,
+          lat: defaultAddress.lat,
+          lng: defaultAddress.lng,
+          place_id: defaultAddress.placeId,
+        } : undefined,
       };
 
       console.log('Creating order with data:', orderData);
       console.log('User authentication status:', {
-        isAuthenticated: !user.isGuest,
+        isAuthenticated: true,
         userId: user.id,
-        userType: user.isGuest ? 'guest' : 'authenticated'
+                  userType: 'authenticated'
       });
 
       const newOrder = await createOrder(orderData);
@@ -237,11 +259,11 @@ export default function CheckoutScreen() {
         ...prev,
         name: user.name || '',
         phone: user.phone || '',
-        address: user.address || '',
+        address: (defaultAddress?.line1 || user.address || ''),
         email: user.email || '',
       }));
     }
-  }, [user]);
+  }, [user, defaultAddress?.line1]);
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -393,15 +415,56 @@ export default function CheckoutScreen() {
               />
             </View>
 
-            {/* Show guest order info for guest users */}
-            <GuestOrderInfo visible={user?.isGuest || false} />
+            
 
             <View style={[styles.section, styles.addressSection]}>
               <Text style={styles.sectionTitle}>Delivery Address</Text>
-              <AddressAutocomplete
-                onAddressSelect={(address) => handleChange('address', address)}
-                value={formData.address}
-                placeholder="Enter your delivery address..."
+              {addressList.length > 0 ? (
+                <AddressChip
+                  text={formData.address || defaultAddress?.line1 || 'Select address'}
+                  onPress={() => setAddressSheetOpen(true)}
+                />
+              ) : (
+                <AddressAutocomplete
+                  onAddressSelect={(address) => handleChange('address', typeof address === 'string' ? address : address.place_name)}
+                  value={formData.address}
+                  placeholder="Enter your delivery address..."
+                />
+              )}
+
+              <AddressBookSheet
+                visible={addressSheetOpen}
+                onClose={() => setAddressSheetOpen(false)}
+                addresses={addressList}
+                onAdd={async (payload) => {
+                  try {
+                    const saved = await upsertAddressMutation.mutateAsync({ line1: payload.line1, isDefault: true });
+                    setFormData(prev => ({ ...prev, address: saved.line1 }));
+                    setAddressSheetOpen(false);
+                    Toast.show({ type: 'success', text1: 'Address saved', text2: 'Default address updated.' });
+                  } catch (e: any) {
+                    console.error('Checkout save address failed:', e);
+                    Toast.show({ type: 'error', text1: 'Failed to save address', text2: e.message || 'Try again' });
+                  }
+                }}
+                onSetDefault={async (id) => {
+                  try {
+                    await setDefaultAddressMutation.mutateAsync(id);
+                    const picked = addressList.find(a => a.id === id);
+                    if (picked) setFormData(prev => ({ ...prev, address: picked.line1 }));
+                    setAddressSheetOpen(false);
+                    Toast.show({ type: 'success', text1: 'Default updated' });
+                  } catch (e: any) {
+                    console.error('Checkout set default failed:', e);
+                    Toast.show({ type: 'error', text1: 'Failed to set default', text2: e.message || 'Try again' });
+                  }
+                }}
+                onDelete={() => {}}
+                onSelect={(addr) => {
+                  setFormData(prev => ({ ...prev, address: addr.line1 }));
+                  setAddressSheetOpen(false);
+                  setDefaultAddressMutation.mutate(addr.id);
+                }}
               />
             </View>
 

@@ -12,11 +12,6 @@ export const initializeConnectionTest = async () => {
       return false;
     }
     
-    if (!diagnostics.rawConnection) {
-      console.warn('⚠️  Raw connection failed. This may be due to CORS settings.');
-      console.warn('Add your development URL to Supabase CORS settings if needed.');
-    }
-    
     if (!diagnostics.supabaseClient) {
       console.warn('⚠️  Supabase client connection failed. This is likely a CORS issue.');
       console.warn('Your app may work once deployed or with proper CORS configuration.');
@@ -32,8 +27,8 @@ export const initializeConnectionTest = async () => {
       console.warn('   - For Expo dev server: http://localhost:8081');
     }
     
-    if (!diagnostics.databaseWrite) {
-      console.warn('⚠️  Database write test failed. Basic read operations should still work.');
+    if (!diagnostics.databaseOperations) {
+      console.warn('⚠️  Database operations test failed. Basic read operations should still work.');
     }
     
     console.log('✅ Supabase connection established successfully');
@@ -113,7 +108,6 @@ export const testRealtimeSubscription = async (testDuration: number = 10000): Pr
     const testTimeout = setTimeout(() => {
       console.log('❌ Realtime subscription test timed out');
       testChannel.unsubscribe();
-      supabase.removeChannel(testChannel);
       resolveOnce(false);
     }, testDuration);
 
@@ -124,13 +118,11 @@ export const testRealtimeSubscription = async (testDuration: number = 10000): Pr
         console.log('✅ Realtime subscription test successful');
         clearTimeout(testTimeout);
         testChannel.unsubscribe();
-        supabase.removeChannel(testChannel);
         resolveOnce(true);
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         console.log('❌ Realtime subscription test failed:', error || 'Timed out');
         clearTimeout(testTimeout);
         testChannel.unsubscribe();
-        supabase.removeChannel(testChannel);
         resolveOnce(false);
       }
     });

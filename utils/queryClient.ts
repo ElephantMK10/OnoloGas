@@ -38,6 +38,9 @@ export const queryClient = new QueryClient({
       
       // Mutation retry delay
       retryDelay: 1000,
+      
+      // Mutation timeout
+      networkMode: 'online',
     },
   },
 });
@@ -99,6 +102,16 @@ export const invalidateQueries = {
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.stats(userId) });
     } else {
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+    }
+  },
+  
+  // Invalidate profile
+  profile: (userId?: string) => {
+    if (userId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.detail(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.completion(userId) });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
     }
   },
   

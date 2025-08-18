@@ -29,15 +29,14 @@ import { NotificationsSettings } from '../components/settings/NotificationsSetti
 import { PrivacySecuritySettings } from '../components/settings/PrivacySecuritySettings';
 import Toast from 'react-native-toast-message';
 import CustomTextInput from '../components/CustomTextInput';
-import AddressAutocomplete from '../components/AddressAutocomplete';
 import ProfileUpdateProgress from '../components/ProfileUpdateProgress';
 import { z } from 'zod';
 import { ProfileUpdateSchema, validateData, getValidationErrors } from '../validation/schemas/index';
 import { supabase } from '../lib/supabase';
 import ProfileSettingsScreen from '../components/ProfileSettingsScreen';
 import { Order, OrderItem } from '../services/interfaces/IOrderService';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { updateProfileRow } from '../services/profileService';
+import { useUpdateProfile } from '../hooks/queries/useAuthQueries';
+import DeliveryTab from '../components/DeliveryTab';
 
 type TabType = 'orders' | 'profile' | 'settings';
 type SettingsScreenType = string; // Allow any string to match ProfileSettingsScreen's expectations
@@ -94,12 +93,8 @@ export default function ProfileScreen() {
   
   const [activeTab, setActiveTab] = useState<TabType>('orders');
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false)
-  const qc = useQueryClient()
 
-  const updateMutation = useMutation({
-    mutationFn: updateProfileRow,
-  })
+  const updateProfileMutation = useUpdateProfile()
   const [showProgress, setShowProgress] = useState(false);
   const [updateProgress, setUpdateProgress] = useState<ProfileUpdateProgress[]>([]);
   const [formData, setFormData] = useState<FormData>({
@@ -116,6 +111,8 @@ export default function ProfileScreen() {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [settingsScreen, setSettingsScreen] = useState<string>('main');
 
+  // DeliveryTab now owns address hooks/state to isolate brittleness
+
   // Ref to track if component is mounted
   const isMountedRef = useRef(true);
 
@@ -126,9 +123,11 @@ export default function ProfileScreen() {
     };
   }, []);
 
+  // Simple loading state - no complex mutations or watchdogs needed
+
   // Update form data when user changes
   useEffect(() => {
-    if (user && !user.isGuest) {
+    if (user) {
       // Parse existing address or use empty values
       const existingAddress = user.address || '';
       const addressParts = parseAddress(existingAddress);
@@ -261,7 +260,7 @@ export default function ProfileScreen() {
 
   const handleCancelEdit = useCallback(() => {
     // Prevent canceling while saving
-    if (isSaving) {
+    if (updateProfileMutation.isPending) {
       return;
     }
 
@@ -287,7 +286,7 @@ export default function ProfileScreen() {
         country: addressParts.country || 'South Africa',
       });
     }
-  }, [user, parseAddress, dismissKeyboard, isSaving]);
+  }, [user, parseAddress, dismissKeyboard, updateProfileMutation.isPending]);
 
   const handleSaveProfile = useCallback(async () => {
     if (!user?.id) return
@@ -302,24 +301,27 @@ export default function ProfileScreen() {
       address: combineAddress(formData),
     }
 
-    console.log('handleSaveProfile:start', cleanedData)
-    setIsSaving(true)
-
+    console.log('BASIC handleSaveProfile:start', cleanedData)
+    
+    // SIMPLE direct update - bypass all the complex mutation logic
     try {
-      const data = await updateMutation.mutateAsync({ id: user.id, ...cleanedData })
-      console.log('handleSaveProfile:updated', data)
-      await qc.invalidateQueries({ queryKey: ['profile', user.id] })
-      await refreshUser()
-      Toast.show({ type: 'success', text1: 'Profile updated' })
-      setIsEditing(false)
-      setShowProgress(false)
-    } catch (err: any) {
-      console.log('handleSaveProfile:error', err)
-      Toast.show({ type: 'error', text1: err?.message || 'Failed to update profile' })
-    } finally {
-      setIsSaving(false)
+      const { updateUserProfile } = await import('../services/basicProfileUpdate');
+      setShowProgress(true);
+      const result = await updateUserProfile(user.id, cleanedData);
+      console.log('BASIC: Profile updated successfully');
+      
+      // Success - update UI
+      setIsEditing(false);
+      setShowProgress(false);
+      setFormErrors({});
+      Toast.show({ type: 'success', text1: 'Profile updated!' });
+    } catch (error: any) {
+      console.error('BASIC: Profile update failed:', error);
+      setShowProgress(false);
+      setFormErrors({ general: error.message || 'Update failed' });
+      Toast.show({ type: 'error', text1: 'Update failed' });
     }
-  }, [user?.id, formData, dismissKeyboard, validateForm, combineAddress, updateMutation, qc, refreshUser])
+  }, [user?.id, formData, dismissKeyboard, validateForm, combineAddress])
 
   const handleLogout = async () => {
     try {
@@ -513,247 +515,7 @@ export default function ProfileScreen() {
         );
 
       case 'profile':
-        return (
-          <KeyboardAvoidingView
-            style={styles.keyboardAvoidingView}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-          >
-            <TouchableWithoutFeedback onPress={dismissKeyboard}>
-              <ScrollView
-                style={styles.profileScrollView}
-                contentContainerStyle={styles.profileScrollContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
-                <Text style={styles.sectionTitle}>Profile Information</Text>
-
-                {/* Show progress during update */}
-                {showProgress && updateProgress.length > 0 && (
-                  <ProfileUpdateProgress
-                    steps={updateProgress.map((p) => ({
-                      id: p.step,
-                      title: p.step.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-                      status: p.status,
-                      description: p.message || p.error,
-                    }))}
-                  />
-                )}
-
-                {isEditing ? (
-                  <View style={styles.profileSection}>
-                    <View style={styles.inputGroup}>
-                      <CustomTextInput
-                        label="Full Name *"
-                        value={formData.name}
-                        onChangeText={(text) => handleChange('name', text)}
-                        placeholder="Enter your full name"
-                        returnKeyType="next"
-                        editable={!isSaving}
-                        autoCapitalize="words"
-                        error={formErrors.name}
-                      />
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                      <CustomTextInput
-                        label="Email"
-                        value={formData.email}
-                        onChangeText={(text) => handleChange('email', text)}
-                        placeholder="Enter your email address"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        editable={!user?.isGuest && !isSaving}
-                        returnKeyType="next"
-                        error={formErrors.email}
-                      />
-                      {user?.isGuest && (
-                        <Text style={styles.helperText}>
-                          📧 Create an account to use email features
-                        </Text>
-                      )}
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                      <CustomTextInput
-                        label="Phone Number *"
-                        value={formData.phone}
-                        onChangeText={(text) => handleChange('phone', text)}
-                        placeholder="Enter your phone number"
-                        keyboardType="phone-pad"
-                        returnKeyType="next"
-                        editable={!isSaving}
-                        error={formErrors.phone}
-                      />
-                      <Text style={styles.helperText}>📞 Used for delivery coordination</Text>
-                    </View>
-
-                    {/* Enhanced Address Section */}
-                    <View style={styles.inputGroup}>
-                      <AddressAutocomplete
-                        label="Delivery Address *"
-                        value={formData.streetAddress}
-                        onAddressSelect={(featureOrString) => {
-                          // Mapbox feature type definition
-                          type MapboxFeature = {
-                            place_name?: string;
-                            text?: string;
-                            address?: string;
-                            context?: Array<{ id: string; text: string }>;
-                            properties?: Record<string, any>;
-                          };
-
-                          // Helper function to get context by type
-                          const getCtx = (f: MapboxFeature, type: string) =>
-                            f.context?.find(c => c.id.startsWith(type + '.'))?.text || '';
-
-                          // Function to fill form data from Mapbox feature
-                          const fillFromFeature = (f: MapboxFeature) => {
-                            const street = [f.address, f.text].filter(Boolean).join(' ') || f.place_name || '';
-                            const city = getCtx(f, 'place') || getCtx(f, 'locality') || getCtx(f, 'district') || '';
-                            const state = getCtx(f, 'region') || '';
-                            const postalCode = getCtx(f, 'postcode') || '';
-                            const country = getCtx(f, 'country') || 'South Africa';
-
-                            setFormData(prev => ({
-                              ...prev,
-                              streetAddress: street,
-                              city,
-                              state,
-                              postalCode,
-                              country,
-                            }));
-                          };
-
-                          if (typeof featureOrString === 'string') {
-                            // Fallback: just set the street address
-                            setFormData(prev => ({ ...prev, streetAddress: featureOrString }));
-                            return;
-                          }
-
-                          // Handle Mapbox feature
-                          fillFromFeature(featureOrString as MapboxFeature);
-                        }}
-                        placeholder="Start typing your address..."
-                        style={{ zIndex: 10 }}
-                      />
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                      <CustomTextInput
-                        label="Apartment, Suite, Unit (Optional)"
-                        value={formData.apartment}
-                        onChangeText={(text) => handleChange('apartment', text)}
-                        placeholder="e.g., Apt 4B, Suite 100"
-                        returnKeyType="next"
-                        editable={!isSaving}
-                        autoCapitalize="words"
-                      />
-                    </View>
-
-                    <View style={styles.inputRow}>
-                      <View style={styles.inputHalf}>
-                        <CustomTextInput
-                          label="City *"
-                          value={formData.city}
-                          onChangeText={(text) => handleChange('city', text)}
-                          placeholder="e.g., Johannesburg"
-                          returnKeyType="next"
-                          editable={!isSaving}
-                          autoCapitalize="words"
-                          error={formErrors.city}
-                        />
-                      </View>
-                      <View style={styles.inputHalf}>
-                        <CustomTextInput
-                          label="State/Province"
-                          value={formData.state}
-                          onChangeText={(text) => handleChange('state', text)}
-                          placeholder="e.g., Gauteng"
-                          returnKeyType="next"
-                          editable={!isSaving}
-                          autoCapitalize="words"
-                        />
-                      </View>
-                    </View>
-
-                    <View style={styles.inputRow}>
-                      <View style={styles.inputHalf}>
-                        <CustomTextInput
-                          label="ZIP/Postal Code"
-                          value={formData.postalCode}
-                          onChangeText={(text) => handleChange('postalCode', text)}
-                          placeholder="e.g., 2000"
-                          returnKeyType="next"
-                          editable={!isSaving}
-                          keyboardType="numeric"
-                        />
-                      </View>
-                      <View style={styles.inputHalf}>
-                        <CustomTextInput
-                          label="Country"
-                          value={formData.country}
-                          onChangeText={(text) => handleChange('country', text)}
-                          placeholder="South Africa"
-                          returnKeyType="done"
-                          editable={!isSaving}
-                          autoCapitalize="words"
-                        />
-                      </View>
-                    </View>
-
-                    <Text style={styles.helperText}>
-                      🚚 This will be your primary delivery address for orders
-                    </Text>
-
-                    <View style={styles.buttonRow}>
-                      <Button
-                        title="Cancel"
-                        onPress={handleCancelEdit}
-                        style={[styles.button, styles.cancelButtonStyle]}
-                        variant="outline"
-                        disabled={isSaving}
-                      />
-                      <Button
-                        title={isSaving ? 'Saving...' : 'Save Changes'}
-                        onPress={handleSaveProfile}
-                        style={[styles.button, styles.saveButton]}
-                        loading={isSaving}
-                        disabled={isSaving || !formData.name.trim()}
-                      />
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.profileSection}>
-                    <View style={styles.profileItem}>
-                      <Text style={styles.profileLabel}>Name</Text>
-                      <Text style={styles.profileValue}>{user?.name || 'Not set'}</Text>
-                    </View>
-                    <View style={styles.profileItem}>
-                      <Text style={styles.profileLabel}>Email</Text>
-                      <Text style={styles.profileValue}>{user?.email || 'Not set'}</Text>
-                    </View>
-                    <View style={styles.profileItem}>
-                      <Text style={styles.profileLabel}>Phone</Text>
-                      <Text style={styles.profileValue}>{user?.phone || 'Not set'}</Text>
-                    </View>
-                    <View style={styles.profileItem}>
-                      <Text style={styles.profileLabel}>Delivery Address</Text>
-                      <Text style={styles.profileValue}>{user?.address || 'Not set'}</Text>
-                    </View>
-
-                    <Button
-                      title="Edit Profile"
-                      onPress={() => setIsEditing(true)}
-                      style={styles.editButton}
-                      disabled={isSaving}
-                    />
-                  </View>
-                )}
-              </ScrollView>
-            </TouchableWithoutFeedback>
-          </KeyboardAvoidingView>
-        );
+        return <DeliveryTab userId={user?.id || ''} styles={styles} />;
 
       case 'settings':
         return (
@@ -819,7 +581,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerWrapper}>
-        <Header showBackButton />
+        <Header />
         <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
           <CustomIcon name="close-circle-outline" size={24} color={COLORS.text.white} />
         </TouchableOpacity>
@@ -831,7 +593,7 @@ export default function ProfileScreen() {
             <CustomIcon name="person" size={40} color={COLORS.text.white} />
           </View>
           <Text style={styles.userName}>
-            {user?.name || 'Guest User'}
+            {user?.name || 'User'}
           </Text>
 
           {pendingOrdersCount > 0 && (
@@ -842,16 +604,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
 
-          {!isAuthenticated && (
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>Sign In</Text>
-            </TouchableOpacity>
-          )}
-          {isAuthenticated && user && (
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutButtonText}>Sign Out</Text>
-            </TouchableOpacity>
-          )}
+          
         </View>
 
         <View style={styles.tabsContainer}>
@@ -980,18 +733,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  logoutButton: {
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    backgroundColor: COLORS.error,
-    borderRadius: 20,
-  },
-  logoutButtonText: {
-    color: COLORS.text.white,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
+
   tabsContainer: {
     flexDirection: 'row',
     backgroundColor: '#1A1A1A',

@@ -1,8 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authService } from '../../services/auth/AuthService';
-import { queryKeys, invalidateQueries } from '../../utils/queryClient';
-import { updateProfileRow } from '@/services/profileService';
+import { queryKeys as utilQueryKeys, invalidateQueries } from '../../utils/queryClient';
+import { simpleUpdateProfile } from '@/services/simpleProfileService';
 import type { LoginRequest, RegisterRequest, User } from '../../services/interfaces/IAuthService';
+import { supabase, log, isAuthError, ensureSession } from '@/lib/supabase';
+import { queryKeys } from '@/lib/queryKeys';
+import { useAuth as useAuthContext } from '../../contexts/AuthContext';
 
 // Current user query
 export const useCurrentUser = () => {
@@ -156,48 +159,139 @@ export const useAuth = () => {
     refetchAuthStatus: authStatusQuery.refetch,
   };
 };
-// Profile update mutation
+// Profile update mutation with proper typing
+type ProfilePatch = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  address: string;
+};
+
 export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-  
-  return useMutation({
-    mutationFn: async (profileData: {
-      first_name: string;
-      last_name: string;
-      phone: string;
-      address: string;
-    }) => {
-      if (!user?.id) {
-        throw new Error('Cannot update profile: no authenticated user');
-      }
-      const { data, error } = await updateProfileRow({
-        ...profileData,
-        updated_at: new Date().toISOString(),
-      });
+  const { refreshUser } = useAuthContext();
 
-      if (error) throw new Error(error.message || 'Failed to update profile');
-      if (!data) throw new Error('No profile row updated');
-      return data;
+  return useMutation<any, Error, ProfilePatch>({
+    mutationFn: async (profileData) => {
+      const requestId = `profile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      log.info(`[${requestId}] Profile update started`, { userId: profileData.id });
+      console.log(`[${requestId}] Profile update mutation started`, { userId: profileData.id });
+
+      try {
+        console.log(`[${requestId}] Getting current session directly...`);
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.user) {
+          throw new Error('No active session. Please sign in again.');
+        }
+        
+        const userId = session.user.id;
+        log.info(`[${requestId}] Using session user id: ${userId}`);
+        console.log(`[${requestId}] Session verified, userId: ${userId}`);
+
+        if (userId !== profileData.id) {
+          throw new Error('User ID mismatch. Please sign in again.');
+        }
+
+        console.log(`[${requestId}] About to call simpleUpdateProfile with data:`, profileData);
+        const result = await simpleUpdateProfile(profileData.id, {
+          first_name: profileData.first_name,
+          last_name: profileData.last_name,
+          phone: profileData.phone,
+          address: profileData.address
+        });
+        if (!result) throw new Error('No profile row updated');
+
+        log.info(`[${requestId}] Profile update completed successfully`);
+        console.log(`[${requestId}] Profile update mutation completed, result:`, result);
+        return result;
+      } catch (error: any) {
+        log.error(`[${requestId}] Profile update failed:`, error);
+        console.error(`[${requestId}] Profile update failed:`, error);
+        if (isAuthError(error)) throw new Error('Session expired. Please sign in again.');
+        throw error;
+      }
     },
-    onSuccess: (data) => {
-      // Update the user data in cache
+    
+    onSuccess: async (data, vars) => {
+      log.info('Profile mutation: onSuccess - updating cache and syncing AuthContext');
+      console.log('Profile update onSuccess - data:', data);
+      
+      // Update profile detail cache (both old and new query key systems)
+      queryClient.setQueryData(queryKeys.profile.detail(vars.id), data);
+      queryClient.setQueryData(utilQueryKeys.profile.detail(vars.id), data);
+      
+      // Update auth.user cache optimistically (both systems) 
       queryClient.setQueryData(queryKeys.auth.user, (oldUser: any) => {
         if (!oldUser) return oldUser;
-        return {
+        const updatedUser = {
           ...oldUser,
+          ...data, // Merge all profile fields
           name: `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim(),
-          phone: data.phone ?? oldUser.phone,
-          address: data.address ?? oldUser.address,
         };
+        log.info('Profile mutation: User cache updated', updatedUser);
+        console.log('Profile mutation: User cache updated', updatedUser);
+        return updatedUser;
       });
       
-      // Invalidate relevant queries
+      queryClient.setQueryData(utilQueryKeys.auth.user, (oldUser: any) => {
+        if (!oldUser) return oldUser;
+        const updatedUser = {
+          ...oldUser,
+          ...data, // Merge all profile fields
+          name: `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim(),
+        };
+        return updatedUser;
+      });
+      
+      // CRITICAL: Sync with AuthContext to fix profile screen display
+      try {
+        await refreshUser();
+        log.info('Profile mutation: AuthContext refreshed successfully');
+        console.log('Profile mutation: AuthContext refreshed successfully');
+      } catch (error) {
+        log.error('Profile mutation: Failed to refresh AuthContext:', error);
+        console.error('Profile mutation: Failed to refresh AuthContext:', error);
+      }
+      
+      // Force invalidation to ensure consistency (both systems)
+      setTimeout(() => {
+        // New system
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.profile.detail(vars.id),
+          exact: true 
+        });
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.auth.user,
+          exact: true 
+        });
+        
+        // Old system (for compatibility)
+        queryClient.invalidateQueries({ 
+          queryKey: utilQueryKeys.profile.detail(vars.id),
+          exact: true 
+        });
+        queryClient.invalidateQueries({ 
+          queryKey: utilQueryKeys.auth.user,
+          exact: true 
+        });
+        
+        log.info('Profile mutation: Cache invalidated (both systems)');
+      }, 50);
+    },
+    
+    onError: (error, vars) => {
+      log.error('Profile mutation: onError', error.message);
+      console.error('Profile mutation: onError', error.message);
+      
+      // Invalidate to refresh from server on error (both systems)
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.detail(vars.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.user });
+      queryClient.invalidateQueries({ queryKey: utilQueryKeys.profile.detail(vars.id) });
+      queryClient.invalidateQueries({ queryKey: utilQueryKeys.auth.user });
     },
-    onError: (error) => {
-      console.warn('[Profile] Update failed:', error?.message || error);
-      throw error;
-    },
+    
+    retry: false,
   });
 };

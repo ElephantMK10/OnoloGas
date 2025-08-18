@@ -3,7 +3,10 @@
 <head>
     <title>Payment Success</title>
     <script>
-        window.location.href = "onolo://payfast-success";
+        (function() {
+          var qs = window.location.search || '';
+          window.location.replace('onolo://payfast-success' + qs);
+        })();
     </script>
 </head>
 <body>

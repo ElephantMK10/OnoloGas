@@ -51,6 +51,7 @@ export interface CreateOrderRequest {
   deliveryDate?: string;
   deliverySchedule?: string;
   preferredDeliveryWindow?: string;
+  shippingAddressSnapshot?: any;
 }
 
 export interface UpdateOrderRequest {

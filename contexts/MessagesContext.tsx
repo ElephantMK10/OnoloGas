@@ -47,12 +47,12 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 
   // Load messages when user changes
   useEffect(() => {
-    if (user && isAuthenticated && !user.isGuest) {
+    if (user && isAuthenticated) {
       loadMessages();
       loadUnreadCount();
       setupEventListeners();
     } else {
-      // Clear messages for guest users or when logged out
+      // Clear messages when logged out
       setMessages([]);
       setUnreadCount(0);
       // Clean up subscriptions
@@ -63,7 +63,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 
   // Load messages from service
   const loadMessages = useCallback(async () => {
-    if (!user || user.isGuest) return;
+    if (!user) return;
 
     try {
       setIsLoading(true);
@@ -98,7 +98,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 
   // Load unread count from service
   const loadUnreadCount = useCallback(async () => {
-    if (!user || user.isGuest) return;
+    if (!user) return;
 
     try {
       const count = await messageService.getUnreadCount(user.id);
@@ -114,7 +114,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 
   // Set up event listeners for real-time updates
   const setupEventListeners = useCallback(() => {
-    if (!user || user.isGuest) return;
+    if (!user) return;
 
     console.log('MessagesContext: Setting up real-time event listeners');
 
@@ -174,22 +174,20 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
         )
       );
 
-      // Update unread count if read status changed
+      // Update unread count if needed
       if (updates.isRead !== undefined) {
-        loadUnreadCount();
+        if (updates.isRead) {
+          setUnreadCount(prev => Math.max(0, prev - 1));
+        } else if (existingMsg.senderType === 'staff' && !existingMsg.isRead) {
+          setUnreadCount(prev => prev + 1);
+        }
       }
     });
 
     // Subscribe to unread count changes
-    const unsubscribeUnreadCount = messageService.onUnreadCountChanged((count) => {
-      if (!isMountedRef.current) return;
-
-      console.log('MessagesContext: Unread count changed:', count);
-      if (count === -1) {
-        // -1 indicates we need to refresh the count
-        loadUnreadCount();
-      } else {
-        setUnreadCount(count);
+    const unsubscribeUnreadCount = messageService.onUnreadCountChanged((newCount) => {
+      if (isMountedRef.current) {
+        setUnreadCount(newCount);
       }
     });
 
@@ -215,7 +213,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 
   // Message methods
   const sendMessage = useCallback(async (request: CreateMessageRequest): Promise<void> => {
-    if (!user || user.isGuest) {
+    if (!user) {
       throw new Error('User not authenticated');
     }
 
@@ -286,7 +284,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const markAllAsRead = useCallback(async (): Promise<void> => {
-    if (!user || user.isGuest) return;
+    if (!user) return;
 
     try {
       console.log('MessagesContext: Marking all messages as read');
@@ -295,7 +293,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
       
       console.log('MessagesContext: All messages marked as read successfully');
       
-      // Update local state
+      // Update local state (real-time handler will also be triggered)
       setMessages(prev => 
         prev.map(msg => ({ ...msg, isRead: true, _clientKey: msg._clientKey }))
       );
@@ -315,101 +313,59 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const refreshMessages = useCallback(async (): Promise<void> => {
-    console.log('MessagesContext: Refreshing messages');
-    await Promise.all([loadMessages(), loadUnreadCount()]);
-  }, [loadMessages, loadUnreadCount]);
+    await loadMessages();
+  }, [loadMessages]);
 
   const loadMoreMessages = useCallback(async (): Promise<void> => {
-    if (!user || user.isGuest || isLoading) return;
-
-    try {
-      setIsLoading(true);
-      console.log('MessagesContext: Loading more messages for user:', user.id);
-
-      const currentCount = messages.length;
-      const fetchedMessages = await messageService.getMessages(user.id, {
-        limit: 25, // Load fewer messages for pagination
-        offset: currentCount,
-      });
-
-      if (isMountedRef.current && fetchedMessages.length > 0) {
-        // Add new messages to existing map
-        fetchedMessages.forEach(msg => {
-          if (!messagesMapRef.current.has(msg.id)) {
-            messagesMapRef.current.set(msg.id, {
-              ...msg,
-              _clientKey: msg.id + '-' + Date.now()
-            });
-          }
-        });
-
-        // Update state with all messages from map (oldest first for proper chat flow)
-        const allMessages = Array.from(messagesMapRef.current.values())
-          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-        setMessages(allMessages);
-      }
-    } catch (error) {
-      console.error('MessagesContext: Error loading more messages:', error);
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-      }
-    }
-  }, [user, messages.length, isLoading]);
+    // Implementation for pagination
+    console.log('MessagesContext: Load more messages not implemented yet');
+  }, []);
 
   const getMessagesByDate = useCallback(async (date: string): Promise<Message[]> => {
-    if (!user || user.isGuest) {
-      return [];
-    }
+    if (!user) return [];
 
     try {
-      console.log('MessagesContext: Getting messages by date:', date);
-      
       const dateMessages = await messageService.getMessagesByDate(user.id, date);
       
-      console.log(`MessagesContext: Found ${dateMessages.length} messages for date ${date}`);
-      
-      // Add client keys for rendering
+      // Enhance messages with client keys
       const enhancedMessages = dateMessages.map(msg => ({
         ...msg,
         _clientKey: msg.id + '-' + Date.now()
       }));
       
       return enhancedMessages;
-    } catch (error: any) {
-      console.error('MessagesContext: Error getting messages by date:', error.message);
+    } catch (error) {
+      console.error('MessagesContext: Error getting messages by date:', error);
       return [];
     }
   }, [user]);
 
   const deleteMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      console.log('MessagesContext: Deleting message:', messageId);
-      
       const success = await messageService.deleteMessage(messageId);
       
       if (success) {
         // Remove from local state
         setMessages(prev => prev.filter(msg => msg.id !== messageId));
         
-        // Remove from messages map
+        // Remove from map
         messagesMapRef.current.delete(messageId);
         
-        // Refresh unread count
-        await loadUnreadCount();
-        console.log('MessagesContext: Message deleted successfully');
+        console.log('MessagesContext: Message deleted successfully:', messageId);
       }
       
       return success;
-    } catch (error: any) {
-      console.error('MessagesContext: Error deleting message:', error.message);
+    } catch (error) {
+      console.error('MessagesContext: Error deleting message:', error);
       return false;
     }
-  }, [loadUnreadCount]);
+  }, []);
 
-  // Memoize methods separately to prevent unnecessary re-renders
-  const methods = useMemo(() => ({
+  // Memoize the context value
+  const value = useMemo(() => ({
+    messages,
+    unreadCount,
+    isLoading,
     sendMessage,
     markAsRead,
     markAllAsRead,
@@ -418,6 +374,9 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     getMessagesByDate,
     deleteMessage,
   }), [
+    messages,
+    unreadCount,
+    isLoading,
     sendMessage,
     markAsRead,
     markAllAsRead,
@@ -425,19 +384,6 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     loadMoreMessages,
     getMessagesByDate,
     deleteMessage,
-  ]);
-
-  // Memoize the context value with optimized dependencies
-  const value: MessagesContextType = useMemo(() => ({
-    messages,
-    unreadCount,
-    isLoading,
-    ...methods,
-  }), [
-    messages,
-    unreadCount,
-    isLoading,
-    methods,
   ]);
 
   return (

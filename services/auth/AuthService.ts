@@ -93,10 +93,16 @@ export class AuthService implements IAuthService {
     try {
       console.log('AuthService: Attempting registration for:', request.email);
 
-      // Create auth user
+      // Create auth user with metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: request.email,
         password: request.password,
+        options: {
+          data: {
+            name: request.name,
+            full_name: request.name,
+          }
+        }
       });
 
       if (authError || !authData.user) {
@@ -210,35 +216,8 @@ export class AuthService implements IAuthService {
    * Send magic link for passwordless login
    */
   async sendMagicLink(email: string): Promise<AuthResult> {
-    try {
-      console.log('AuthService: Sending magic link to:', email);
-
-      const { data, error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: 'onolo://home'
-        }
-      });
-
-      if (error) {
-        console.error('AuthService: Magic link failed:', error.message);
-        return {
-          success: false,
-          error: error.message || 'Failed to send magic link',
-        };
-      }
-
-      console.log('AuthService: Magic link sent successfully');
-      return {
-        success: true,
-      };
-    } catch (error: any) {
-      console.error('AuthService: Magic link error:', error);
-      return {
-        success: false,
-        error: error.message || 'Failed to send magic link',
-      };
-    }
+    console.warn('Magic link login is disabled');
+    return { success: false, error: 'Magic link login is disabled' };
   }
 
   /**
@@ -254,27 +233,8 @@ export class AuthService implements IAuthService {
    * This is a backup to the database trigger
    */
   private async sendWelcomeEmail(email: string, firstName: string, lastName?: string): Promise<void> {
-    try {
-      console.log('AuthService: Sending welcome email to:', email);
-
-      const { data, error } = await supabase.functions.invoke('welcome-email', {
-        body: {
-          email,
-          firstName,
-          lastName,
-        },
-      });
-
-      if (error) {
-        console.error('AuthService: Welcome email error:', error);
-        return;
-      }
-
-      console.log('AuthService: Welcome email sent successfully:', data);
-    } catch (error: any) {
-      console.error('AuthService: Welcome email exception:', error);
-      // Don't throw error - welcome email failure shouldn't break registration
-    }
+    console.log('AuthService: Welcome email functionality disabled');
+    // Welcome email functionality is disabled
   }
 
   /**
@@ -376,21 +336,17 @@ export class AuthService implements IAuthService {
         return null;
       }
 
-      // Use enhanced error handling wrapper for profile
-      const { data: profiles, error } = await supabaseRequest(async () =>
-        await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-      );
-
-      // Handle the response properly
-      const profile = profiles && profiles.length > 0 ? profiles[0] : null;
+      // Read from public.profiles table using the user ID
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
       if (error) {
         // Check for CORS error and provide clearer guidance
-        if (error.isCorsError) {
-          console.error('AuthService: CORS error loading profile. Please configure CORS in Supabase dashboard.');
+        if (error.code === 'PGRST116') {
+          console.error('AuthService: Profile not found for user:', userId);
           // Return fallback profile with auth user data
           return {
             id: authUser.id,
@@ -399,6 +355,7 @@ export class AuthService implements IAuthService {
             phone: '',
             address: '',
             isGuest: false,
+            _fallback: true,
           };
         }
 
@@ -406,17 +363,17 @@ export class AuthService implements IAuthService {
         return null;
       }
 
-      if (!profile) {
+      if (!profiles) {
         console.error('AuthService: Profile not found for user:', userId);
         return null;
       }
 
       const user: User = {
-        id: profile.id,
-        name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || authUser.email?.split('@')[0] || 'User',
+        id: profiles.id,
+        name: `${profiles.first_name || ''} ${profiles.last_name || ''}`.trim() || authUser.email?.split('@')[0] || 'User',
         email: authUser.email || '',
-        phone: profile.phone || '',
-        address: profile.address || '',
+        phone: profiles.phone || '',
+        address: profiles.address || '',
         isGuest: false,
       };
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Stack, useRouter, useSegments, useRootNavigationState, Href } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CartProvider } from '../context/CartContext';
@@ -10,74 +10,67 @@ import { NotificationsProvider } from '../contexts/NotificationsContext';
 import { COLORS } from '../constants/colors';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useRouter, useSegments } from 'expo-router';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { initializeConnectionTest } from '../utils/connectionTest';
 import { queryClient } from '../utils/queryClient';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '@/components/LoadingScreen';
 import LogoutTransition from '../components/LogoutTransition';
-import ErrorBoundary from '../components/ErrorBoundary';
-import Toast from 'react-native-toast-message';
 
 // import PerformanceMonitor from '../components/PerformanceMonitor';
 
-// Define typed routes
-const ROUTES = {
-  TABS: '/(tabs)' as Href,
-  WELCOME: '/welcome' as Href,
-  AUTH_LOGIN: '/auth/login' as Href,
-  AUTH_REGISTER: '/auth/register' as Href,
-} as const;
-
-// Simplified Auth guard - only allow authenticated users into app routes
+// Simplified Auth guard - let Supabase handle the complexity
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isLoading, isAuthenticated } = useAuth();
-  console.log('[AuthGuard] render', { isLoading, isAuthenticated });
-  const segments = useSegments() as string[];
+  const { user, isLoading, isLoggingOut } = useAuth();
+  const segments = useSegments();
   const router = useRouter();
-  const navState = useRootNavigationState();
-  const navReady = !!navState?.key;
 
-  const PUBLIC = new Set(['welcome', 'auth', 'index']);   // public routes (including index)
-  const PROTECTED = new Set(['(tabs)', 'home', 'checkout', 'profile', 'order']); // protected routes
+  // Simple route tracking for debugging
+  useEffect(() => {
+    console.log('🔍 Route segments changed to:', segments.join('/'));
+  }, [segments]);
 
   useEffect(() => {
-    if (!navReady || isLoading) return;
-
-    const current = segments[0] || '';
-    
-    // Special handling for empty route - should go to welcome if not authenticated
-    if (current === '' && !isAuthenticated) {
-      router.replace(ROUTES.WELCOME);
-      return;
-    }
-    
-    const isPublic = PUBLIC.has(current);
-    const isProtected = PROTECTED.has(current) || (!isPublic && current !== '');
-
-    // If authenticated and on a public route, redirect to main app
-    if (isAuthenticated) {
-      if (isPublic || current === '') {
-        router.replace(ROUTES.TABS);
-      }
+    if (isLoading) {
+      console.log('AuthGuard: Still loading, skipping navigation logic');
       return;
     }
 
-    // If not authenticated and trying to access protected route, redirect to login
-    if (isProtected) {
-      router.replace({
-        pathname: ROUTES.AUTH_LOGIN,
-        params: { redirectTo: `/${segments.join('/')}` },
-      } as any);
-    }
-  }, [navReady, isLoading, isAuthenticated, segments, router]);
+    const inAuthGroup = segments[0] === 'auth';
+    const inWelcome = segments[0] === 'welcome';
+    const inHome = segments[0] === 'home' || segments.join('/') === '(tabs)';
 
-  // Show loading screen during initial load
+    console.log('AuthGuard: Route check - segments:', segments.join('/'), {
+      user: !!user,
+      isLoading,
+      inAuthGroup,
+      inWelcome,
+      inHome
+    });
+
+    // ALLOW ALL ROUTES - Don't interfere with navigation
+    // Only protect specific routes that absolutely need authentication
+    const protectedRoutes = ['checkout', 'profile'];
+    const currentRoute = segments[0];
+
+    if (protectedRoutes.includes(currentRoute) && !user) {
+      console.log('AuthGuard: Protected route accessed by unauthenticated user, redirecting to auth');
+      router.replace('/auth/login');
+      return;
+    }
+
+  }, [user, isLoading, segments, router]);
+
   if (isLoading) {
     return <LoadingScreen message="Loading..." />;
   }
 
-  return <>{children}</>;
+  return (
+    <LogoutTransition isLoggingOut={isLoggingOut}>
+      {children}
+    </LogoutTransition>
+  );
 }
 
 // Context providers wrapper to keep layout clean
@@ -104,33 +97,31 @@ export default function RootLayout() {
 
   // Initialize connection test on app startup
   useEffect(() => {
-    if (__DEV__) {
-      const testConnection = async () => {
-        try {
-          const success = await initializeConnectionTest();
-          
-          if (!success) {
-            console.warn('⚠️  Some connection issues detected. App functionality may be limited.');
-            console.warn('For full functionality, configure CORS in your Supabase project settings.');
-          } else {
-            console.log('🎉 Supabase connection is working properly');
-          }
-        } catch (error) {
-          console.error('Connection test failed:', error);
-          console.warn('⚠️  Connection test failed. App functionality may be limited.');
+    const testConnection = async () => {
+      try {
+        const success = await initializeConnectionTest();
+        
+        if (!success) {
+          console.warn('⚠️  Some connection issues detected. App functionality may be limited.');
+          console.warn('For full functionality, configure CORS in your Supabase project settings.');
+        } else {
+          console.log('🎉 Supabase connection is working properly');
         }
-      };
-      
-      testConnection();
-    }
+      } catch (error) {
+        console.error('Connection test failed:', error);
+        console.warn('⚠️  Connection test failed. App functionality may be limited.');
+      }
+    };
+    
+    testConnection();
   }, []);
 
   return (
-    <ErrorBoundary>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
           <ContextProviders>
             <StatusBar style="light" />
+
             <AuthGuard>
             <Stack
               screenOptions={{
@@ -142,7 +133,7 @@ export default function RootLayout() {
                 gestureEnabled: true,
                 gestureDirection: 'horizontal',
               }}
-              initialRouteName="welcome"
+              initialRouteName="index"
             >
               <Stack.Screen
                 name="index"
@@ -242,12 +233,10 @@ export default function RootLayout() {
                 }}
               />
             </Stack>
-            </AuthGuard>
-            {/* <PerformanceMonitor /> */}
-            <Toast />
-          </ContextProviders>
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
-    </ErrorBoundary>
+          </AuthGuard>
+          {/* <PerformanceMonitor /> */}
+        </ContextProviders>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

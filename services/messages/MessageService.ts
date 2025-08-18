@@ -81,6 +81,8 @@ export class MessageService implements IMessageService {
     try {
       console.log('MessageService: Fetching messages for user:', userId, filters);
 
+
+
       let query = supabase
         .from('communication_logs')
         .select('*')
@@ -126,7 +128,7 @@ export class MessageService implements IMessageService {
         throw new Error(error.message);
       }
 
-      const formattedMessages = messagesData?.map(msg => this.formatMessage(msg)) || [];
+      const formattedMessages = messagesData?.map((msg: any) => this.formatMessage(msg)) || [];
       console.log(`MessageService: Fetched ${formattedMessages.length} messages`);
       
       return formattedMessages;
@@ -329,7 +331,7 @@ export class MessageService implements IMessageService {
         throw new Error(error.message);
       }
 
-      const formattedMessages = messagesData?.map(msg => this.formatMessage(msg)) || [];
+      const formattedMessages = messagesData?.map((msg: any) => this.formatMessage(msg)) || [];
       console.log(`MessageService: Fetched ${formattedMessages.length} messages for date ${date}`);
       
       return formattedMessages;
@@ -371,8 +373,8 @@ export class MessageService implements IMessageService {
    * Set up real-time subscription for a user's messages
    */
   setupRealtimeSubscription(userId: string): () => void {
-    if (!userId || userId === 'guest') {
-      console.log('MessageService: Skipping realtime setup for guest user');
+    if (!userId) {
+      console.log('MessageService: Skipping realtime setup for invalid user');
       return () => {};
     }
 

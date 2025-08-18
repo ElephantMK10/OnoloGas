@@ -29,8 +29,8 @@ export default function Header({ showBackButton = false, title }: HeaderProps) {
       return;
     }
 
-    // For anonymous users (no user) or guest users, redirect to login instead of profile
-    if (!user || user.isGuest) {
+    // For anonymous users (no user), redirect to login instead of profile
+    if (!user) {
       router.replace('/auth/login');
       return;
     }
@@ -45,8 +45,8 @@ export default function Header({ showBackButton = false, title }: HeaderProps) {
       return;
     }
 
-    // For anonymous users (no user) or guest users, redirect to login instead of profile
-    if (!user || user.isGuest) {
+    // For anonymous users (no user), redirect to login instead of profile
+    if (!user) {
       router.replace('/auth/login');
       return;
     }

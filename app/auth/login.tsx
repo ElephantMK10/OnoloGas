@@ -18,6 +18,7 @@ import CustomTextInput from '../../components/CustomTextInput';
 import Button from '../../components/Button';
 import Toast from 'react-native-toast-message';
 import { supabase } from '../../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -122,7 +123,12 @@ export default function LoginScreen() {
         return;
       }
 
-      console.log('Login successful, navigating...');
+      console.log('Login successful, saving remember-me preference and navigating...');
+      try {
+        await AsyncStorage.setItem('onolo_remember_me', keepSignedIn ? '1' : '0');
+      } catch (e) {
+        console.warn('Failed to persist remember-me preference', e);
+      }
       // If successful, navigate to the intended destination or home
       if (redirectTo) {
         router.replace(redirectTo as any);

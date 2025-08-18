@@ -1,10 +1,14 @@
 [build]
+  base = ""
   functions = "netlify/functions"
   publish = "dist"
   command = "npm install && npm run build"
 
 [build.environment]
   NODE_VERSION = "18"
+
+[functions]
+  node_bundler = "esbuild"
 
 # Netlify Functions Plugin to handle function dependencies
 [[plugins]]
@@ -15,6 +19,7 @@
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+  force = true
 
 # PayFast redirect pages (must be before catch-all)
 [[redirects]]

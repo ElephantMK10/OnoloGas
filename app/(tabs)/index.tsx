@@ -1,16 +1,9 @@
-import React, { useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import React from 'react';
+import HomeScreen from '../home';
 
-// Tabs index - redirect to main home route
+// Render the Home screen INSIDE the Tabs stack so the custom bottom nav stays visible
 export default function TabsIndexScreen() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Redirect to the main home route
-    router.replace('/home');
-  }, [router]);
-
-  return null; // This component just redirects
+  return <HomeScreen />;
 }
 
 

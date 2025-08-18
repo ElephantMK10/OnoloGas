@@ -35,14 +35,6 @@ export default function LandingPage() {
         </View>
       ))}
 
-      {/* Primary CTA - Browse as guest */}
-      <TouchableOpacity
-        style={styles.primaryButton}
-        activeOpacity={0.8}
-        onPress={handleGetStarted}
-      >
-        <Text style={styles.primaryButtonText}>Browse Products →</Text>
-      </TouchableOpacity>
 
       {/* Secondary CTAs - Auth options */}
       <View style={styles.authContainer}>

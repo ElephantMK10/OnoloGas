@@ -1,18 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase';
 import { authService } from '../services/auth/AuthService';
 import type { User } from '../services/interfaces/IAuthService';
-
-// helper to map session -> minimal User
-function userFromSession(session: any): User | null {
-  const u = session?.user;
-  if (!u) return null;
-  return {
-    id: u.id,
-    email: u.email ?? '',
-    name: u.user_metadata?.name ?? null,
-    phone: u.user_metadata?.phone ?? null,
-  } as User;
-}
 
 // Minimal Auth Context Types - Let Supabase handle the complexity
 interface AuthContextType {
@@ -21,11 +11,11 @@ interface AuthContextType {
   isLoggingOut: boolean;
   isAuthenticated: boolean;
 
-  // Auth methods - all return Promise<boolean> to indicate success/failure
+  // Auth methods - simplified
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
-  logout: () => Promise<boolean>;
-  refreshUser: () => Promise<boolean>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,192 +25,238 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
 
-  // Ref for cleanup
+  // Refs for cleanup
   const isMountedRef = useRef(true);
+  const authSubscriptionRef = useRef<any>(null);
 
   // Computed properties
-  const isAuthenticated = hasSession;
+  const isAuthenticated = !!user;
 
   // Cleanup on unmount
-  // Single source of truth for auth state
   useEffect(() => {
-    isMountedRef.current = true;
-    let unsubscribe: (() => void) | undefined;
-    let cleared = false;
-
-    const clearLoading = () => {
-      if (!cleared && isMountedRef.current) {
-        cleared = true;
-        console.log('AuthContext: set isLoading=false (watchdog/event)');
-        setIsLoading(false);
+    return () => {
+      isMountedRef.current = false;
+      if (authSubscriptionRef.current) {
+        authSubscriptionRef.current.unsubscribe();
+        authSubscriptionRef.current = null;
       }
     };
+  }, []);
 
-    // If no auth event arrives quickly, don’t block the UI forever
-    const watchdog = setTimeout(clearLoading, 2500);
-
-    (async () => {
+  // Minimal auth initialization - let Supabase do the heavy lifting
+  useEffect(() => {
+    const initializeAuth = async () => {
       try {
         console.log('AuthContext: Initializing minimal auth state...');
 
-        // Subscribe to auth changes first to catch initial session
+        // Enforce 'remember me' preference: if not set, do not auto-restore session
+        const remember = await AsyncStorage.getItem('onolo_remember_me');
+        if (remember !== '1') {
+          try { await supabase.auth.signOut({ scope: 'local' } as any); } catch {}
+          if (isMountedRef.current) {
+            setUser(null);
+          }
+        } else {
+          // Get initial session - simple and direct
+          const currentUser = await authService.getCurrentUser();
+          if (currentUser && isMountedRef.current) {
+            setUser(currentUser);
+          }
+        }
+
+        // Minimal auth state listener - only respond to successful auth events
         const { data: { subscription } } = authService.onAuthStateChange(async (event, session) => {
           if (!isMountedRef.current) return;
-          const sessionPresent = !!session?.user;
 
-          // 1) allow routing immediately
-          setHasSession(sessionPresent);
+          console.log('AuthContext: Auth state change:', event, 'Session exists:', !!session?.user);
 
-          try {
-            if (sessionPresent) {
-              // 2) set minimal user immediately so screens can fetch
-              const basic = userFromSession(session);
-              if (basic && isMountedRef.current) setUser(basic);
-
-              // 3) hydrate full user in background (profile, etc.)
-              const fresh = await authService.getCurrentUser().catch(() => null);
-              if (fresh && isMountedRef.current) setUser(fresh);
-            } else {
-              setUser(null);
+          // Handle sign-in events to update user state immediately
+          if (event === 'SIGNED_IN' && session?.user) {
+            console.log('AuthContext: User signed in, updating user state');
+            const currentUser = await authService.getCurrentUser();
+            if (currentUser && isMountedRef.current) {
+              setUser(currentUser);
             }
-          } finally {
-            if (isMountedRef.current) setIsLoading(false);
+          }
+
+          // Only respond to successful authentication events, ignore failed login attempts
+          if (event === 'SIGNED_IN' && session?.user) {
+            console.log('AuthContext: Processing successful sign in');
+            const user = await authService.getCurrentUser();
+            if (user && isMountedRef.current) {
+              setUser(user);
+            }
+          } else if (event === 'SIGNED_OUT') {
+            console.log('AuthContext: Processing sign out');
+            // Only clear user on explicit sign out, not on failed login attempts
+            setUser(null);
+          } else {
+            console.log('AuthContext: Ignoring auth event:', event);
+          }
+          // Ignore other events like 'TOKEN_REFRESHED', failed logins, etc.
+
+          // Always set loading to false after any auth event
+          if (isMountedRef.current) {
+            setIsLoading(false);
           }
         });
 
-        unsubscribe = () => subscription?.unsubscribe?.();
+        authSubscriptionRef.current = subscription;
 
-        // Proactively check session once (do not use getCurrentUser for hasSession)
-        try {
-          const { data: { session } } = await authService.getSession();
-          const present = !!session?.user;
-          setHasSession(present);
-          if (present) {
-            const basic = userFromSession(session);
-            if (basic && isMountedRef.current) setUser(basic);
-            // hydrate in background
-            authService.getCurrentUser().then((fresh) => {
-              if (fresh && isMountedRef.current) setUser(fresh);
-            }).catch(() => {});
-          } else {
-            setUser(null);
-          }
-          setIsLoading(false);
-        } catch (e) {
-          console.error('AuthContext init error:', e);
+        // Set loading to false after initial setup
+        if (isMountedRef.current) {
           setIsLoading(false);
         }
-
       } catch (error) {
         console.error('AuthContext: Error initializing auth:', error);
-        clearLoading();
-      }
-    })();
-
-    return () => {
-      isMountedRef.current = false;
-      unsubscribe?.();
-      clearTimeout(watchdog);
-    };
-  }, []);
-
-  // Auth methods
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    const watchdog = setTimeout(() => {
-      if (isMountedRef.current) {
-        console.warn('AuthContext: login watchdog fired, clearing isLoading');
-        setIsLoading(false);
-      }
-    }, 3000);
-
-    try {
-      const result = await authService.login({ email, password });
-      if (!result.success) {
-        if (isMountedRef.current) setIsLoading(false);
-        return false;
-      }
-      // success path: auth event will set hasSession and clear loading
-      return true;
-    } catch (e) {
-      console.error('AuthContext: Login error:', e);
-      if (isMountedRef.current) setIsLoading(false);
-      return false;
-    } finally {
-      clearTimeout(watchdog);
-    }
-  }, []);
-
-
-  const register = useCallback(async (name: string, email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-      console.log('AuthContext: Starting registration process for:', email);
-      const result = await authService.register({ name, email, password });
-      
-      if (result.success) {
-        console.log('AuthContext: Registration successful');
-        
-        // Check if there's a session (user is signed in) or if email confirmation is required
-        // If the service indicates no session (email confirmation required), stop loading now
-      if (!result.user) {
-        console.log('AuthContext: No user returned, clearing loading state');
         if (isMountedRef.current) {
           setIsLoading(false);
         }
       }
-        // Otherwise, the auth listener will handle updating the state
-        return true;
-      }
-      
-      // If we get here, registration failed but didn't throw
-      console.error('AuthContext: Registration failed:', result.error);
-      if (isMountedRef.current) setIsLoading(false);
-      return false;
-    } catch (error) {
-      console.error('AuthContext: Registration error:', error);
-      if (isMountedRef.current) setIsLoading(false);
-      return false;
-    }
+    };
+
+    initializeAuth();
   }, []);
 
-  const logout = useCallback(async (): Promise<boolean> => {
-    if (isLoggingOut) return false;
-    setIsLoggingOut(true);
-
-    // Optimistically clear local auth state so guard can route
-    if (isMountedRef.current) {
-      setUser(null);
-      setHasSession(false);
-      setIsLoading(false); // do not block UI during logout
-    }
-
+  // Auth methods
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
-      await authService.logout();
+      setIsLoading(true);
+      const result = await authService.login({ email, password });
+
+      if (result.success && result.user) {
+        setUser(result.user);
+        return true;
+      }
+
+      // If login failed, throw an error - let the component handle it
+      throw new Error(result.error || 'Login failed');
+    } catch (error: any) {
+      console.error('AuthContext: Login error:', error);
+      // Just re-throw - no complex state management
+      throw error;
     } finally {
       if (isMountedRef.current) {
-        setIsLoggingOut(false);
         setIsLoading(false);
       }
     }
-    return true;
-  }, [isLoggingOut]);
+  }, []);
 
-  const refreshUser = useCallback(async (): Promise<boolean> => {
+
+
+
+
+  const register = useCallback(async (name: string, email: string, password: string): Promise<boolean> => {
     try {
-      const currentUser = await authService.getCurrentUser();
-      if (isMountedRef.current) {
-        setUser(currentUser);
+      setIsLoading(true);
+      console.log('AuthContext: Starting registration process for:', email);
+
+      const result = await authService.register({ name, email, password });
+
+      if (result.success && result.user) {
+        console.log('AuthContext: Registration successful, updating user state');
+        setUser(result.user);
+
+        // Ensure default is not to remember user on restart after registration
+        try { await AsyncStorage.setItem('onolo_remember_me', '0'); } catch {}
+
+        // Brief wait for auth state to be processed
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // Verify user state is set
+        const currentUser = await authService.getCurrentUser();
+        if (currentUser && isMountedRef.current) {
+          console.log('AuthContext: User state confirmed after registration');
+          setUser(currentUser);
+        }
+
         return true;
       }
+
+      console.log('AuthContext: Registration failed');
       return false;
     } catch (error) {
-      if (__DEV__) {
-        console.error('AuthContext: Error refreshing user:', error);
-      }
+      console.error('AuthContext: Registration error:', error);
       return false;
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+        console.log('AuthContext: Registration process completed');
+      }
+    }
+  }, []);
+
+  const logout = useCallback(async (): Promise<void> => {
+    try {
+      console.log('AuthContext: Starting logout process for user:', user?.name || 'user');
+
+      // Set logout state to trigger smooth transition
+      setIsLoggingOut(true);
+
+      // Create a timeout to prevent getting stuck in logout state
+      const timeoutId = setTimeout(() => {
+        console.warn('AuthContext: Logout timeout reached, forcing completion');
+        if (isMountedRef.current) {
+          setUser(null);
+          setIsLoggingOut(false);
+        }
+      }, 5000); // 5 second timeout
+
+              try {
+          await authService.logout();
+          console.log('AuthContext: Logout completed');
+          try { await AsyncStorage.removeItem('onolo_remember_me'); } catch {}
+
+        // Clear the timeout since logout completed successfully
+        clearTimeout(timeoutId);
+
+        // Shorter delay to prevent stuck state
+        const delay = 200;
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        if (isMountedRef.current) {
+          setUser(null);
+          console.log('AuthContext: User state cleared');
+        }
+
+        // Shorter delay before clearing logout state
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            setIsLoggingOut(false);
+            console.log('AuthContext: Logout transition completed');
+          }
+        }, 200);
+
+      } catch (logoutError) {
+        console.error('AuthContext: Logout service error:', logoutError);
+        clearTimeout(timeoutId);
+
+        // Force clear user state even if logout service fails
+        if (isMountedRef.current) {
+          setUser(null);
+          setIsLoggingOut(false);
+        }
+      }
+
+    } catch (error) {
+      console.error('AuthContext: Logout error:', error);
+      // Always clear logout state on any error
+      if (isMountedRef.current) {
+        setUser(null);
+        setIsLoggingOut(false);
+      }
+    }
+  }, [user]);
+
+  const refreshUser = useCallback(async (): Promise<void> => {
+    try {
+      const currentUser = await authService.getCurrentUser();
+      if (currentUser && isMountedRef.current) {
+        setUser(currentUser);
+      }
+    } catch (error) {
+      console.error('AuthContext: Refresh user error:', error);
     }
   }, []);
 

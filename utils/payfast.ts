@@ -1,14 +1,13 @@
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { getPaymentReturnUrls } from '../config/deployment';
+import { getPaymentReturnUrls, getApiBaseUrl } from '../config/deployment';
 
 // PayFast configuration for production
 const PAYFAST_CONFIG = {
   // Production credentials
   merchantId: '30596897',
   merchantKey: 'ygodvejftqxd4',
-  saltPassphrase: 'G4smeupalready',
   productionUrl: 'https://www.payfast.co.za/eng/process',
   sandboxUrl: 'https://sandbox.payfast.co.za/eng/process',
   // Always set to false for production transactions
@@ -103,7 +102,7 @@ export async function createPayFastPayment(orderData: {
   console.log('=== Creating PayFast Payment ===');
   console.log('Order data:', orderData);
 
-  const baseUrl = PAYFAST_CONFIG.productionUrl;
+  // URL is constructed server-side; no local base URL needed
   
   // Split customer name properly
   const nameParts = orderData.customerName.trim().split(/\s+/);
@@ -129,24 +128,47 @@ export async function createPayFastPayment(orderData: {
     item_description: orderData.itemDescription || `Gas delivery order ${orderData.orderId}`,
   };
 
-  console.log('Payment data before signature:', paymentData);
+  console.log('Payment data before server signing:', paymentData);
 
-  // Generate signature using the corrected algorithm
-  const signature = await generateSignature(paymentData, PAYFAST_CONFIG.saltPassphrase);
-  paymentData.signature = signature;
+  // Request signed URL from Netlify function (with fallback path)
+  const apiBase = getApiBaseUrl();
+  const endpoints = [
+    `${apiBase}/api/payfast-sign`,
+    `${apiBase}/.netlify/functions/payfast-sign`,
+  ];
 
-  console.log('Final payment data with signature:', paymentData);
+  let finalUrl: string | undefined;
+  let lastError: any;
 
-  // Create URL with parameters using the same order and encoding as the signature
-  const queryString = PAYFAST_FIELD_ORDER
-    .filter(key => paymentData[key] !== undefined && paymentData[key] !== '')
-    .map(key => `${key}=${quotePlus(paymentData[key].toString().trim())}`)
-    .join('&') + `&signature=${paymentData.signature}`;
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...paymentData, useSandbox: PAYFAST_CONFIG.useSandbox }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        console.warn('payfast-sign error:', res.status, endpoint, text.slice(0, 200));
+        lastError = new Error(`payfast-sign failed: ${res.status}`);
+        continue;
+      }
+      const json = await res.json();
+      finalUrl = json.url;
+      break;
+    } catch (e) {
+      console.warn('payfast-sign fetch exception for', endpoint, e);
+      lastError = e;
+    }
+  }
 
-  const finalUrl = `${baseUrl}?${queryString}`;
-  console.log('Final PayFast URL:', finalUrl);
+  if (!finalUrl) {
+    throw lastError || new Error('Failed to sign PayFast payment');
+  }
+
+  console.log('Final PayFast URL (from server):', finalUrl);
   console.log('=== End PayFast Payment Creation ===');
-  
+
   return finalUrl;
 }
 
@@ -162,8 +184,8 @@ export async function verifyPayFastPayment(data: Record<string, string>): Promis
     return false;
   }
   
-  // Generate expected signature
-  const expectedSignature = await generateSignature(dataWithoutSignature, PAYFAST_CONFIG.saltPassphrase);
+  // Generate expected signature (client-side check only; server verifies with secret)
+  const expectedSignature = await generateSignature(dataWithoutSignature);
   
   console.log('Received signature:', signature);
   console.log('Expected signature:', expectedSignature);
@@ -269,7 +291,7 @@ export async function testSignatureGeneration(): Promise<string> {
     item_name: 'Test Payment',
   };
   
-  const signature = await generateSignature(testData, PAYFAST_CONFIG.saltPassphrase);
+  const signature = await generateSignature(testData);
   console.log('Test signature result:', signature);
   console.log('=== End Test ===');
   

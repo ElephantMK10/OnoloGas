@@ -11,7 +11,6 @@ import { testSignatureGeneration } from './payfast';
 const PAYFAST_TESTING_CONFIG = {
   merchantId: '30596897',
   merchantKey: 'ygodvejftqxd4',
-  saltPassphrase: 'G4smeupalready',
   sandboxUrl: 'https://sandbox.payfast.co.za/eng/process',
 };
 
@@ -161,9 +160,7 @@ export function validatePayFastConfig() {
     issues.push('Using test Merchant Key instead of production value');
   }
   
-  if (!config.saltPassphrase || config.saltPassphrase === 'gasmeupalready19') {
-    issues.push('Using test Salt Passphrase instead of production value');
-  }
+  // Removed client-side passphrase handling; server signs requests
   
   const isValid = issues.length === 0;
   

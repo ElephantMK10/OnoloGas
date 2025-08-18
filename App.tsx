@@ -1,28 +1,11 @@
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
-import { initializeConnectionTest } from '@/utils/connectionTest';
 
 export default function App() {
   useEffect(() => {
-    // Run connection diagnostics on app startup
-    const testConnection = async () => {
-      try {
-        const success = await initializeConnectionTest();
-        
-        if (!success) {
-          console.warn('⚠️  Some connection issues detected. App functionality may be limited.');
-          console.warn('For full functionality, configure CORS in your Supabase project settings.');
-        } else {
-          console.log('🎉 Supabase connection is working properly');
-        }
-      } catch (error) {
-        console.error('Connection test failed:', error);
-        console.warn('⚠️  Connection test failed. App functionality may be limited.');
-      }
-    };
-    
-    testConnection();
+    // Connection test moved to _layout.tsx to avoid duplicate runs
+    console.log('App: Initializing...');
   }, []);
 
   return (
