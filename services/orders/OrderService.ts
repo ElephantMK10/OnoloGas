@@ -53,6 +53,7 @@ export class OrderService implements IOrderService {
         // Create the order record
         const orderRecord = {
           customer_id: request.userId,
+          user_id: request.userId, // include user_id to satisfy RLS policies
           customer_name: request.customerName,
           customer_email: request.customerEmail,
           delivery_address: request.deliveryAddress,
@@ -62,7 +63,6 @@ export class OrderService implements IOrderService {
           notes: request.notes,
           delivery_date: request.deliveryDate,
           preferred_delivery_window: request.preferredDeliveryWindow,
-          shipping_address_snapshot: request.shippingAddressSnapshot || null,
         };
 
         log.info('OrderService: Creating order in database:', orderRecord);
