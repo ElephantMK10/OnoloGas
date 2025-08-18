@@ -11,9 +11,19 @@ import type {
 import type { SupabaseOrder, SupabaseOrderItem, OrderWithItems, OrderStats } from './types';
 import { guestOrderNotificationService } from '../notifications/GuestOrderNotificationService';
 
+// Temporary normalization to match DB check constraint values
+function normalizePaymentMethod(method: string): string {
+  switch (method) {
+    case 'card_on_delivery':
+      return 'cash_on_delivery';
+    default:
+      return method;
+  }
+}
+
 export class OrderService implements IOrderService {
   private static instance: OrderService;
-  
+
   // Singleton pattern to ensure one instance
   public static getInstance(): OrderService {
     if (!OrderService.instance) {
@@ -43,13 +53,13 @@ export class OrderService implements IOrderService {
         // Guest users don't have orders in the database
         // Orders are managed locally by OrdersContext
         log.info('OrderService: Creating guest order (will not be saved to database)');
-        
+
         const guestOrder = this.createGuestOrder(request);
         return guestOrder;
       } else {
         // Authenticated users have orders saved to database
         log.info('OrderService: Creating authenticated user order (will be saved to database)');
-        
+
         // Create the order record
         const orderRecord = {
           customer_id: request.userId,
@@ -57,7 +67,8 @@ export class OrderService implements IOrderService {
           customer_name: request.customerName,
           customer_email: request.customerEmail,
           delivery_address: request.deliveryAddress,
-          payment_method: request.paymentMethod,
+          delivery_phone: request.customerPhone || '',
+          payment_method: normalizePaymentMethod(request.paymentMethod),
           total_amount: request.totalAmount,
           status: 'pending',
           notes: request.notes,
@@ -93,6 +104,7 @@ export class OrderService implements IOrderService {
           product_name: item.productName,
           quantity: item.quantity,
           unit_price: item.price,
+          total_price: Number((item.price * item.quantity).toFixed(2)),
         }));
 
         log.info('OrderService: Creating order items:', orderItems);
@@ -219,13 +231,13 @@ export class OrderService implements IOrderService {
           details: error.details,
           hint: error.hint
         });
-        
+
         // Check for auth errors
         if (isAuthError(error)) {
           log.error('OrderService: Authentication error while fetching orders:', error);
           throw new Error('Session expired. Please sign in again.');
         }
-        
+
         throw new Error(`Failed to fetch orders: ${error.message}`);
       }
 
@@ -272,7 +284,7 @@ export class OrderService implements IOrderService {
           log.info('OrderService: Order not found:', orderId);
           return null;
         }
-        
+
         log.error('OrderService: Error fetching order:', error);
         log.error('OrderService: Error details:', {
           code: error.code,
@@ -280,13 +292,13 @@ export class OrderService implements IOrderService {
           details: error.details,
           hint: error.hint
         });
-        
+
         // Check for auth errors
         if (isAuthError(error)) {
           log.error('OrderService: Authentication error while fetching order:', error);
           throw new Error('Session expired. Please sign in again.');
         }
-        
+
         throw new Error(`Failed to fetch order: ${error.message}`);
       }
 

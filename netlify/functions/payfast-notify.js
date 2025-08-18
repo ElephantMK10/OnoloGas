@@ -1,5 +1,4 @@
-import type { Handler } from '@netlify/functions';
-import crypto from 'crypto';
+const crypto = require('crypto');
 
 // Read secrets from environment variables (set these in Netlify)
 const PASS = process.env.PAYFAST_PASSPHRASE || '';
@@ -20,14 +19,14 @@ const FIELD_ORDER = [
   'item_description',
 ];
 
-const quotePlus = (v: string) => encodeURIComponent(v).replace(/%20/g, '+');
+const quotePlus = (v) => encodeURIComponent(String(v)).replace(/%20/g, '+');
 
-function buildSignature(data: Record<string, string>) {
+function buildSignature(data) {
   let s = '';
   for (const k of FIELD_ORDER) {
     const val = data[k];
     if (val !== undefined && val !== '') {
-      s += `${k}=${quotePlus(val.trim())}&`;
+      s += `${k}=${quotePlus(String(val).trim())}&`;
     }
   }
   if (s.endsWith('&')) s = s.slice(0, -1);
@@ -35,7 +34,7 @@ function buildSignature(data: Record<string, string>) {
   return crypto.createHash('md5').update(s).digest('hex');
 }
 
-export const handler: Handler = async (event) => {
+exports.handler = async (event) => {
   try {
     if (event.httpMethod !== 'POST') {
       return { statusCode: 405, body: 'Method Not Allowed' };
@@ -45,19 +44,13 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: 'No data received' };
     }
 
-    // PayFast sends form-encoded data
-    const contentType = event.headers['content-type'] || event.headers['Content-Type'] || '';
-    if (!contentType.includes('application/x-www-form-urlencoded')) {
-      // Attempt best-effort parse even if header is missing
-    }
-
     const parsed = new URLSearchParams(event.body);
-    const data: Record<string, string> = {};
+    const data = {};
     parsed.forEach((v, k) => (data[k] = v));
 
     // Extract and verify signature
     const receivedSignature = data.signature;
-    delete (data as any).signature;
+    delete data.signature;
 
     const expectedSignature = buildSignature(data);
 
